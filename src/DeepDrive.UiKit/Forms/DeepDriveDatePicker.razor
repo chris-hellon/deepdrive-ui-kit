@@ -1,0 +1,147 @@
+@inject IJSRuntime JS
+@implements IAsyncDisposable
+
+<div class="relative">
+    @if (!string.IsNullOrEmpty(Label))
+    {
+        <label class="block uppercase tracking-wider text-neutral-900 text-sm font-medium mb-2">@Label</label>
+    }
+
+    <input id="@_domId"
+           type="text"
+           class="@InputCss"
+           placeholder="@(Placeholder ?? "Select date...")"
+           readonly
+           disabled="@Disabled" />
+</div>
+
+@code {
+    [Parameter] public DateOnly? Value { get; set; }
+    [Parameter] public EventCallback<DateOnly?> ValueChanged { get; set; }
+    [Parameter] public string? Label { get; set; }
+    [Parameter] public string? Placeholder { get; set; }
+    [Parameter] public string? Class { get; set; }
+    [Parameter] public string? Min { get; set; }
+    [Parameter] public string? Max { get; set; }
+    [Parameter] public InputSize InputSize { get; set; } = InputSize.Medium;
+    [Parameter] public bool Rounded { get; set; } = true;
+    [Parameter] public bool Disabled { get; set; }
+
+    private string _domId = $"datepicker-{Guid.NewGuid():N}";
+    private IJSObjectReference? _jsModule;
+    private DotNetObjectReference<DeepDriveDatePicker>? _dotNetRef;
+    private bool _initialized;
+
+    private string InputCss
+    {
+        get
+        {
+            var css = "w-full bg-white border border-neutral-200 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 cursor-pointer";
+
+            css += InputSize switch
+            {
+                InputSize.Large => " px-4 py-3",
+                InputSize.Medium => " p-3 text-sm",
+                InputSize.Small => " px-3 py-2 text-xs",
+                _ => " p-3 text-sm"
+            };
+
+            if (Rounded) css += " rounded-lg";
+            if (!string.IsNullOrEmpty(Class)) css += " " + Class;
+
+            return css;
+        }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await InitializeFlatpickrAsync();
+        }
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (_initialized && _jsModule != null)
+        {
+            try
+            {
+                await _jsModule.InvokeVoidAsync("updateOptions", _domId, new { minDate = Min, maxDate = Max });
+
+                var formattedValue = Value?.ToString("yyyy-MM-dd");
+                if (!string.IsNullOrEmpty(formattedValue))
+                {
+                    await _jsModule.InvokeVoidAsync("setDate", _domId, formattedValue);
+                }
+            }
+            catch { }
+        }
+    }
+
+    private async Task InitializeFlatpickrAsync()
+    {
+        // Wait for flatpickr library to be available (loaded lazily from CDN)
+        const int maxAttempts = 50; // 5 seconds total (50 * 100ms)
+        for (var attempt = 0; attempt < maxAttempts; attempt++)
+        {
+            try
+            {
+                var isReady = await JS.InvokeAsync<bool>("eval", "typeof flatpickr !== 'undefined'");
+                if (isReady) break;
+            }
+            catch { }
+
+            await Task.Delay(100);
+        }
+
+        try
+        {
+            _jsModule = await JS.InvokeAsync<IJSObjectReference>("import", "./_content/DeepDrive.UiKit/js/flatpickr.js");
+            _dotNetRef = DotNetObjectReference.Create(this);
+
+            await _jsModule.InvokeVoidAsync("init", _domId, _dotNetRef, new
+            {
+                dateFormat = "Y-m-d",
+                enableTime = false,
+                noCalendar = false,
+                minDate = Min,
+                maxDate = Max,
+                defaultDate = Value?.ToString("yyyy-MM-dd")
+            });
+            _initialized = true;
+        }
+        catch { }
+    }
+
+    [JSInvokable]
+    public async Task OnFlatpickrChange(string dateStr)
+    {
+        if (string.IsNullOrEmpty(dateStr))
+        {
+            Value = null;
+            await ValueChanged.InvokeAsync(null);
+            return;
+        }
+
+        if (DateOnly.TryParse(dateStr, out var date))
+        {
+            Value = date;
+            await ValueChanged.InvokeAsync(date);
+        }
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (_jsModule != null)
+        {
+            try
+            {
+                await _jsModule.InvokeVoidAsync("destroy", _domId);
+                await _jsModule.DisposeAsync();
+            }
+            catch { }
+        }
+        _dotNetRef?.Dispose();
+    }
+}

@@ -1,0 +1,113 @@
+@typeparam T
+@using System.Linq.Expressions
+
+@inherits InputNumber<T>
+
+<div>
+    @if (!string.IsNullOrEmpty(Label))
+    {
+        <label for="@_domId" class="block mb-2 text-sm uppercase tracking-wider font-medium text-neutral-900">@Label</label>
+    }
+
+    <input id="@_domId"
+           name="@NameAttributeValue"
+           type="number"
+           class="@Css"
+           placeholder="@Placeholder"
+           value="@FormattedValue"
+           disabled="@Disabled"
+           min="@Min"
+           step="@Step"
+           max="@Max"
+           @onchange="HandleChange"
+           @attributes="AdditionalAttributes"
+           @ref="Element"/>
+
+    @if (For is not null)
+    {
+        <CustomValidationMessage For="@For" />
+    }
+</div>
+
+@code {
+       [Parameter] public Expression<Func<T?>>? For { get; set; }
+       [Parameter] public string? Label { get; set; }
+       [Parameter] public string? Placeholder { get; set; }
+       [Parameter] public InputSize InputSize { get; set; } = InputSize.Medium;
+       [Parameter] public string? Class { get; set; }
+       [Parameter] public bool Disabled { get; set; }
+       [Parameter] public bool HideBorder { get; set; }
+       [Parameter] public bool Rounded { get; set; }
+       [Parameter] public T? Min { get; set; }
+       [Parameter] public T? Max { get; set; }
+       [Parameter] public T? Step { get; set; }
+       
+       [Parameter] public EventCallback<ChangeEventArgs> OnInputChanged { get; set; }
+       
+       private string Id => FieldIdentifier.FieldName;
+       private string FormattedValue => FormatValue(_usedDefaultExpression ? Value : CurrentValue);
+
+       private string _domId = null!;
+       
+       private string Css => new CssBuilder()
+              .Add("w-full bg-white outline-none focus:outline-none [&.invalid]:border-red-500 [&.invalid]:ring-red-500 focus:border-emerald-500 focus:ring-emerald-500")
+              .AddIf(() => "border border-transparent", HideBorder)
+              .AddIf(() => "border border-gray-200", !HideBorder)
+              .AddIf(() => "rounded-lg", Rounded)
+              .AddIf(() => "px-4 py-3", InputSize == InputSize.Large)
+              .AddIf(() => "p-3 text-sm", InputSize == InputSize.Medium)
+              .AddIf(() => "px-3 py-2 text-xs", InputSize == InputSize.Small)
+              .Add(CssClass)
+              .Add(Class)
+              .ToString();
+
+       #pragma warning disable CS0649 // Field intentionally unassigned - used only for expression placeholder
+       private T? _dummyValue;
+       #pragma warning restore CS0649
+       private bool _usedDefaultExpression;
+
+       public override Task SetParametersAsync(ParameterView parameters)
+       {
+              // Provide a default ValueExpression if not specified (allows usage without @bind-Value)
+              if (!parameters.TryGetValue<Expression<Func<T>>>(nameof(ValueExpression), out _) && ValueExpression == null)
+              {
+                     ValueExpression = () => _dummyValue!;
+                     _usedDefaultExpression = true;
+              }
+              return base.SetParametersAsync(parameters);
+       }
+
+       protected override void OnInitialized()
+       {
+              _domId = $"{Id}-{Guid.NewGuid():N}";
+
+              if (_usedDefaultExpression)
+              {
+                     FieldIdentifier = new FieldIdentifier(new object(), Guid.NewGuid().ToString());
+              }
+
+              base.OnInitialized();
+       }
+       
+       private async Task HandleChange(ChangeEventArgs e)
+       {
+              if (BindConverter.TryConvertTo<T>(e.Value?.ToString(), CultureInfo.InvariantCulture, out var parsedValue))
+                     CurrentValue = parsedValue;
+
+              if (OnInputChanged.HasDelegate)
+                     await OnInputChanged.InvokeAsync(e);
+       }
+
+       private static string FormatValue(T? value)
+       {
+              if (value == null) return string.Empty;
+
+              return value switch
+              {
+                     decimal decimalValue => decimalValue.ToString(CultureInfo.InvariantCulture),
+                     double doubleValue => doubleValue.ToString(CultureInfo.InvariantCulture),
+                     float floatValue => floatValue.ToString(CultureInfo.InvariantCulture),
+                     _ => value.ToString() ?? string.Empty
+              };
+       }
+}

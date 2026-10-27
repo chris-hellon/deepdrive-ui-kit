@@ -1,0 +1,161 @@
+@inject IJSRuntime Js
+
+<div class="flex flex-col h-full bg-bone">
+    @* Compact Header (visible when scrolled) *@
+    <div class="@(_isScrolled ? "translate-y-0 opacity-100" : "-translate-y-full opacity-0 pointer-events-none") transition-all duration-300 absolute top-0 left-0 right-0 z-30 bg-white border-b border-ink/10 px-4 py-2.5">
+        <div class="flex items-center justify-between gap-2">
+            <h1 class="ed-display text-base text-ink leading-none">@Title</h1>
+            <div class="flex items-center gap-1.5">
+                @if (HeaderActions is not null)
+                {
+                    @HeaderActions
+                }
+                @if (ShowSearch)
+                {
+                    <FilterToggleButton IsActive="_filterVisible" OnClick="ToggleFilterVisible" />
+                }
+                @if (!string.IsNullOrWhiteSpace(CreateUrl))
+                {
+                    <AdminCreateButton Href="@CreateUrl" Text="Create" />
+                }
+            </div>
+        </div>
+    </div>
+
+    <div class="flex-1 overflow-y-auto overflow-x-hidden" @onscroll="OnScroll" data-scroll-container>
+        @* Full Header (scrolls away) *@
+        <div class="bg-white border-b border-ink/10 px-4 md:px-6 py-3 md:py-4">
+            <div class="flex items-center justify-between gap-2">
+                <h1 class="ed-display text-xl md:text-2xl text-ink leading-none">@Title</h1>
+                <div class="flex items-center gap-1.5">
+                    @if (HeaderActions is not null)
+                    {
+                        @HeaderActions
+                    }
+                    @if (ShowSearch)
+                    {
+                        <FilterToggleButton IsActive="_filterVisible" OnClick="ToggleFilterVisible" />
+                    }
+                    @if (!string.IsNullOrWhiteSpace(CreateUrl))
+                    {
+                        <AdminCreateButton Href="@CreateUrl" Text="Create" />
+                    }
+                </div>
+            </div>
+
+            @if (_filterVisible && FilterContent is not null)
+            {
+                <div class="mt-3 space-y-2">
+                    @FilterContent
+                </div>
+            }
+        </div>
+
+        <div class="px-4 md:px-6 py-4 md:py-6">
+            @if (Loading)
+            {
+                @if (LoadingSkeleton is not null)
+                {
+                    @LoadingSkeleton
+                }
+                else
+                {
+                    <LoadingSpinner />
+                }
+            }
+            else if (!string.IsNullOrWhiteSpace(Error))
+            {
+                <AlertBox Message="@Error" />
+            }
+            else if (IsEmpty)
+            {
+                <div class="flex flex-col items-center justify-center py-20 text-center">
+                    <div class="w-16 h-16 bg-bone2 border border-ink/10 flex items-center justify-center mb-4 text-taupe">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/>
+                            <path d="m3.3 7 8.7 5 8.7-5"/>
+                            <path d="M12 22V12"/>
+                        </svg>
+                    </div>
+                    <p class="text-sm text-taupe">@EmptyMessage</p>
+                </div>
+            }
+            else
+            {
+                <div class="space-y-3">
+                    @ChildContent
+                </div>
+
+                @if (TotalPages > 1)
+                {
+                    <Pagination CurrentPage="CurrentPage"
+                                TotalPages="TotalPages"
+                                TotalCount="TotalCount"
+                                PageSize="PageSize"
+                                OnPageChanged="OnPageChanged" />
+                }
+            }
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public string Title { get; set; } = string.Empty;
+    [Parameter] public string? CreateUrl { get; set; }
+    [Parameter] public bool ShowSearch { get; set; } = true;
+    [Parameter] public RenderFragment? HeaderActions { get; set; }
+    [Parameter] public RenderFragment? FilterContent { get; set; }
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+    [Parameter] public RenderFragment? LoadingSkeleton { get; set; }
+
+    // Loading/Error state
+    [Parameter] public bool Loading { get; set; }
+    [Parameter] public string? Error { get; set; }
+
+    // Empty state
+    [Parameter] public bool IsEmpty { get; set; }
+    [Parameter] public string EmptyMessage { get; set; } = "No items found.";
+
+    // Pagination
+    [Parameter] public int CurrentPage { get; set; } = 1;
+    [Parameter] public int TotalPages { get; set; }
+    [Parameter] public int TotalCount { get; set; }
+    [Parameter] public int PageSize { get; set; } = 15;
+    [Parameter] public EventCallback<int> OnPageChanged { get; set; }
+
+    // Filter visibility
+    [Parameter] public bool FilterVisible { get; set; }
+    [Parameter] public EventCallback<bool> FilterVisibleChanged { get; set; }
+
+    private bool _filterVisible;
+    private bool _isScrolled;
+
+    protected override void OnParametersSet()
+    {
+        _filterVisible = FilterVisible;
+    }
+
+    private async Task ToggleFilterVisible()
+    {
+        _filterVisible = !_filterVisible;
+        await FilterVisibleChanged.InvokeAsync(_filterVisible);
+    }
+
+    private async Task OnScroll()
+    {
+        try
+        {
+            var scrollTop = await Js.InvokeAsync<double>("eval", "document.querySelector('[data-scroll-container]')?.scrollTop ?? 0");
+            var shouldBeScrolled = scrollTop > 60;
+            if (shouldBeScrolled != _isScrolled)
+            {
+                _isScrolled = shouldBeScrolled;
+                StateHasChanged();
+            }
+        }
+        catch
+        {
+            // Ignore scroll errors
+        }
+    }
+}

@@ -1,0 +1,22 @@
+@*
+    The canonical admin "Create / New" action button — matches the golfer app's
+    list-page action button (Common/AppListPage). Used in every admin header.
+*@
+@if (!string.IsNullOrEmpty(Href))
+{
+    <a href="@Href" class="h-9 inline-flex items-center px-4 bg-emerald-500 text-white ed-micro hover:bg-emerald-600 transition-colors flex-shrink-0">
+        @Text
+    </a>
+}
+else
+{
+    <button type="button" @onclick="OnClick" class="h-9 inline-flex items-center px-4 bg-emerald-500 text-white ed-micro hover:bg-emerald-600 transition-colors flex-shrink-0">
+        @Text
+    </button>
+}
+
+@code {
+    [Parameter] public string? Href { get; set; }
+    [Parameter] public EventCallback OnClick { get; set; }
+    [Parameter] public string Text { get; set; } = "Create";
+}

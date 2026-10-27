@@ -1,0 +1,10 @@
+<button @onclick="OnClick"
+        class="px-3 py-1.5 ed-micro transition-colors @(IsActive ? "bg-emerald-500 text-white" : "bg-white border border-ink/10 text-taupe hover:text-ink hover:bg-bone2")">
+    @Label
+</button>
+
+@code {
+    [Parameter, EditorRequired] public string Label { get; set; } = string.Empty;
+    [Parameter] public bool IsActive { get; set; }
+    [Parameter] public EventCallback OnClick { get; set; }
+}

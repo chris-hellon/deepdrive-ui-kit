@@ -1,0 +1,78 @@
+@namespace DeepDrive.UiKit.Common
+
+@inherits ComponentBase
+
+@if (Visible)
+{
+    <div class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4" role="dialog" aria-modal="true" aria-labelledby="bt-confirm-title" @onclick="OnBackdropClick">
+        <div class="bg-white border border-ink/10 shadow-2xl w-full max-w-md" @onclick:stopPropagation>
+            <div class="p-5 border-b border-ink/10 flex items-center justify-between gap-3">
+                <h4 id="bt-confirm-title" class="font-heading text-lg text-ink" style="font-weight:600">@Title</h4>
+                <button class="w-8 h-8 flex items-center justify-center text-taupe hover:bg-bone2 hover:text-ink transition-colors shrink-0" @onclick="Close">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+                </button>
+            </div>
+            <div class="p-5 space-y-3">
+                @if (!string.IsNullOrWhiteSpace(Message))
+                {
+                    <div class="text-sm text-inksoft leading-relaxed">@Message</div>
+                }
+                @ChildContent
+                @if (!string.IsNullOrWhiteSpace(Error))
+                {
+                    <div class="text-xs text-red-700 bg-red-50 px-3 py-2" role="alert" aria-live="polite">@Error</div>
+                }
+            </div>
+            <div class="p-5 border-t border-ink/10 grid grid-cols-1 md:grid-cols-2 gap-2.5">
+                <button class="px-4 py-3 ed-micro bg-bone2 border border-ink/10 text-inksoft hover:bg-ink/[0.06] transition-colors order-2 md:order-1"
+                        @onclick="Close" disabled="@Busy">@CancelText</button>
+                <button class="px-4 py-3 ed-micro bg-emerald-500 text-white hover:bg-emerald-600 transition-colors disabled:opacity-60 order-1 md:order-2"
+                        @onclick="Confirm" disabled="@Busy">@(Busy ? ProcessingText : ConfirmText)</button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public bool Visible { get; set; }
+    [Parameter] public EventCallback<bool> VisibleChanged { get; set; }
+
+    [Parameter] public string Title { get; set; } = "Confirm";
+    [Parameter] public string? Message { get; set; }
+    [Parameter] public string ConfirmText { get; set; } = "Confirm";
+    [Parameter] public string CancelText { get; set; } = "Back";
+    [Parameter] public string ProcessingText { get; set; } = "Processing…";
+    [Parameter] public bool Busy { get; set; }
+    [Parameter] public string? Error { get; set; }
+
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+
+    [Parameter] public EventCallback OnConfirm { get; set; }
+    [Parameter] public EventCallback OnCancel { get; set; }
+
+    private Task OnBackdropClick()
+    {
+        if (!Busy)
+            return Close();
+        return Task.CompletedTask;
+    }
+
+    private async Task Close()
+    {
+        if (Busy) return;
+        await VisibleChanged.InvokeAsync(false);
+        if (OnCancel.HasDelegate)
+        {
+            await OnCancel.InvokeAsync();
+        }
+    }
+
+    private async Task Confirm()
+    {
+        if (Busy) return;
+        if (OnConfirm.HasDelegate)
+        {
+            await OnConfirm.InvokeAsync();
+        }
+    }
+}

@@ -1,0 +1,57 @@
+@inject IJSRuntime Js
+
+<span @ref="_elementRef"
+      @onmouseenter="ShowTooltip"
+      @onmouseleave="HideTooltip"
+      @onfocus="ShowTooltip"
+      @onblur="HideTooltip"
+      class="@Class"
+      style="@Style">
+    @ChildContent
+</span>
+
+@code {
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+    [Parameter] public string? Text { get; set; }
+    [Parameter] public TooltipPosition Position { get; set; } = TooltipPosition.Auto;
+    [Parameter] public string? Class { get; set; }
+    [Parameter] public string? Style { get; set; }
+    [Parameter] public bool Disabled { get; set; }
+
+    private ElementReference _elementRef;
+
+    private async Task ShowTooltip()
+    {
+        if (Disabled || string.IsNullOrWhiteSpace(Text)) return;
+
+        var position = Position switch
+        {
+            TooltipPosition.Top => "top",
+            TooltipPosition.Bottom => "bottom",
+            TooltipPosition.Left => "left",
+            TooltipPosition.Right => "right",
+            _ => "auto"
+        };
+
+        try
+        {
+            await Js.InvokeVoidAsync("tooltip.show", _elementRef, Text, position);
+        }
+        catch
+        {
+            // Ignore JS interop errors during dispose
+        }
+    }
+
+    private async Task HideTooltip()
+    {
+        try
+        {
+            await Js.InvokeVoidAsync("tooltip.hide");
+        }
+        catch
+        {
+            // Ignore JS interop errors during dispose
+        }
+    }
+}

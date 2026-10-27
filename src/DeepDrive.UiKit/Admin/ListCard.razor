@@ -1,0 +1,30 @@
+<div class="bg-white p-4 border border-ink/10 hover:bg-bone2/50 transition-colors">
+    @* Desktop *@
+    <div class="hidden md:flex items-center gap-4">
+        <div class="flex-1 min-w-0">
+            @DesktopContent
+        </div>
+        @if (Actions is not null)
+        {
+            <div class="flex items-center gap-2 flex-shrink-0">
+                @Actions
+            </div>
+        }
+    </div>
+    @* Mobile *@
+    <div class="md:hidden">
+        @(MobileContent ?? DesktopContent)
+        @if (Actions is not null)
+        {
+            <div class="mt-3 pt-3 border-t border-ink/10 flex flex-col gap-2 [&>*]:w-full [&>*]:text-center">
+                @Actions
+            </div>
+        }
+    </div>
+</div>
+
+@code {
+    [Parameter] public RenderFragment? DesktopContent { get; set; }
+    [Parameter] public RenderFragment? MobileContent { get; set; }
+    [Parameter] public RenderFragment? Actions { get; set; }
+}

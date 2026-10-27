@@ -1,0 +1,75 @@
+@typeparam T
+@using System.Linq.Expressions
+
+<div>
+    @if (!string.IsNullOrEmpty(Label))
+    {
+        <label for="@_domId" class="block mb-2 text-sm uppercase tracking-wider font-medium text-neutral-900">@Label</label>
+    }
+
+    <input id="@_domId"
+           type="datetime-local"
+           class="@Css"
+           value="@FormatValue()"
+           disabled="@Disabled"
+           @onchange="HandleChange" />
+</div>
+
+@code {
+    [Parameter] public T? Value { get; set; }
+    [Parameter] public EventCallback<T?> ValueChanged { get; set; }
+    [Parameter] public Expression<Func<T?>>? For { get; set; }
+    [Parameter] public string? Label { get; set; }
+    [Parameter] public InputSize InputSize { get; set; } = InputSize.Medium;
+    [Parameter] public string? Class { get; set; }
+    [Parameter] public bool Disabled { get; set; }
+    [Parameter] public bool HideBorder { get; set; }
+    [Parameter] public bool Rounded { get; set; }
+
+    private string _domId = Guid.NewGuid().ToString("N");
+
+    private string Css => new CssBuilder()
+        .Add("w-full bg-white outline-none focus:outline-none focus:border-emerald-500 focus:ring-emerald-500")
+        .AddIf(() => "border border-transparent", HideBorder)
+        .AddIf(() => "border border-gray-200", !HideBorder)
+        .AddIf(() => "rounded-lg", Rounded)
+        .AddIf(() => "px-4 py-3", InputSize == InputSize.Large)
+        .AddIf(() => "p-3 text-sm", InputSize == InputSize.Medium)
+        .AddIf(() => "px-3 py-2 text-xs", InputSize == InputSize.Small)
+        .Add(Class)
+        .ToString();
+
+    private string FormatValue()
+    {
+        if (Value is DateTime dt)
+        {
+            return dt.ToString("yyyy-MM-ddTHH:mm", CultureInfo.InvariantCulture);
+        }
+        return string.Empty;
+    }
+
+    private async Task HandleChange(ChangeEventArgs e)
+    {
+        var strValue = e.Value?.ToString();
+        if (string.IsNullOrEmpty(strValue))
+        {
+            if (typeof(T) == typeof(DateTime?))
+            {
+                await ValueChanged.InvokeAsync((T?)(object?)null);
+            }
+            return;
+        }
+
+        if (DateTime.TryParse(strValue, CultureInfo.InvariantCulture, DateTimeStyles.None, out var parsed))
+        {
+            if (typeof(T) == typeof(DateTime?))
+            {
+                await ValueChanged.InvokeAsync((T)(object)(DateTime?)parsed);
+            }
+            else if (typeof(T) == typeof(DateTime))
+            {
+                await ValueChanged.InvokeAsync((T)(object)parsed);
+            }
+        }
+    }
+}

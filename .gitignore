@@ -1,0 +1,21 @@
+# Build output
+bin/
+obj/
+[Dd]ebug/
+[Rr]elease/
+*.user
+*.suo
+
+# Node / Tailwind toolchain (the built CSS in wwwroot IS committed so consumers need no npm)
+node_modules/
+npm-debug.log*
+
+# IDE / OS
+.vs/
+.vscode/
+.idea/
+.DS_Store
+*.swp
+
+# Rider
+*.sln.iml

@@ -1,0 +1,8 @@
+<div class="flex items-center gap-2.5 mb-4">
+    <span class="w-[7px] h-[7px] bg-emerald-500"></span>
+    <h2 class="dd-mono text-[11px] font-semibold tracking-[0.22em] uppercase text-inksoft m-0">@ChildContent</h2>
+</div>
+
+@code {
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+}

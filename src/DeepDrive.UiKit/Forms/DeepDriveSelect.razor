@@ -1,0 +1,131 @@
+@*
+    Lightweight inline custom select / dropdown.
+
+    A themed alternative to the native <select> (DeepDriveInputSelect) without the
+    full-screen search modal of DeepDriveSearchSelect. Renders a styled trigger and
+    an inline panel with emerald hover/selected states. Two-way bind via @bind-Value.
+*@
+
+<div class="relative @(_open ? "z-[60]" : "") @Class" @onfocusout="HandleFocusOut">
+    @if (!string.IsNullOrEmpty(Label))
+    {
+        <label class="@LabelCss">@Label</label>
+    }
+
+    <button type="button" @onclick="Toggle" disabled="@Disabled" class="@TriggerCss">
+        @if (LeadingIcon is not null)
+        {
+            <span class="absolute left-4 top-1/2 -translate-y-1/2 @(OnDark ? "text-white/60" : "text-neutral-400")">@LeadingIcon</span>
+        }
+        <span class="flex-1 text-left truncate @(HasValue ? (OnDark ? "text-white font-medium" : "text-neutral-900 font-medium") : (OnDark ? "text-white/60" : "text-neutral-400"))">@DisplayLabel</span>
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+             stroke="currentColor" stroke-width="2"
+             class="absolute right-4 top-1/2 -translate-y-1/2 @(OnDark ? "text-white/50" : "text-neutral-400") transition-transform duration-200 @(_open ? "rotate-180" : "")">
+            <path d="m6 9 6 6 6-6" />
+        </svg>
+    </button>
+
+    @if (!string.IsNullOrEmpty(Hint))
+    {
+        <p class="text-[10px] text-neutral-500 mt-1">@Hint</p>
+    }
+
+    @if (_open)
+    {
+        <div class="@PanelCss">
+            @foreach (var opt in Options)
+            {
+                var selected = opt.Value == Value;
+                @* preventDefault on mousedown keeps focus on the trigger so the
+                   wrapper's focusout doesn't fire before the option's click registers *@
+                <button type="button" @onclick="() => SelectAsync(opt.Value)" @onmousedown:preventDefault="true"
+                        class="w-full flex items-center justify-between px-4 py-2.5 text-left text-sm transition-colors @(selected ? "bg-emerald-50 text-emerald-700 font-semibold" : "text-neutral-700 hover:bg-emerald-50 hover:text-emerald-700")">
+                    <span class="truncate">@opt.Label</span>
+                    @if (selected)
+                    {
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="flex-shrink-0 ml-2">
+                            <path d="M20 6 9 17l-5-5" />
+                        </svg>
+                    }
+                </button>
+            }
+        </div>
+    }
+</div>
+
+@code {
+    public record SelectOption(string Value, string Label);
+
+    [Parameter] public string Value { get; set; } = "";
+    [Parameter] public EventCallback<string> ValueChanged { get; set; }
+    [Parameter] public IEnumerable<SelectOption> Options { get; set; } = [];
+    [Parameter] public string? Placeholder { get; set; }
+    [Parameter] public string? Label { get; set; }
+    [Parameter] public string? Hint { get; set; }
+    [Parameter] public string? Class { get; set; }
+    [Parameter] public InputSize InputSize { get; set; } = InputSize.Medium;
+    [Parameter] public bool Rounded { get; set; } = false;
+    /// <summary>Transparent trigger with white text — for use over dark/photo backgrounds (e.g. the hero search bar).</summary>
+    [Parameter] public bool OnDark { get; set; }
+    [Parameter] public bool Disabled { get; set; }
+    [Parameter] public RenderFragment? LeadingIcon { get; set; }
+
+    private bool _open;
+
+    private bool HasValue => !string.IsNullOrEmpty(Value);
+
+    private string DisplayLabel =>
+        Options.FirstOrDefault(o => o.Value == Value)?.Label ?? Placeholder ?? "Select";
+
+    private string LabelCss => new CssBuilder()
+        .Add("block uppercase tracking-wider text-neutral-900")
+        .AddIf(() => "mb-1 text-xs font-small", InputSize == InputSize.Small)
+        .AddIf(() => "text-sm font-medium mb-2", InputSize != InputSize.Small)
+        .ToString();
+
+    private string TriggerCss
+    {
+        get
+        {
+            var css = new CssBuilder()
+                .AddIf(() => "w-full flex items-center relative bg-transparent text-white border border-white/15 pr-10 cursor-pointer transition-colors hover:border-white/30 focus:outline-none", OnDark)
+                .AddIf(() => "w-full flex items-center relative bg-white text-neutral-900 border border-neutral-200 pr-10 cursor-pointer transition-shadow focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500", !OnDark)
+                .Add(LeadingIcon is not null ? "pl-11" : "pl-4")
+                .AddIf(() => "py-3 text-base", InputSize == InputSize.Large)
+                .AddIf(() => "py-3 text-sm", InputSize == InputSize.Medium)
+                .AddIf(() => "py-2 text-xs", InputSize == InputSize.Small)
+                .AddIf(() => "rounded-xl", Rounded)
+                .AddIf(() => "ring-2 ring-emerald-500 shadow-lg", _open && !Disabled)
+                .AddIf(() => "bg-neutral-100 cursor-not-allowed opacity-60", Disabled)
+                .ToString();
+
+            return string.IsNullOrEmpty(Class) ? css : $"{css} {Class}";
+        }
+    }
+
+    private string PanelCss => new CssBuilder()
+        .Add("premium-select-panel absolute left-0 right-0 top-full mt-2 z-[60] bg-white border border-neutral-200 shadow-2xl max-h-72 overflow-y-auto py-1")
+        .AddIf(() => "rounded-xl", Rounded)
+        .ToString();
+
+    private void Toggle()
+    {
+        if (!Disabled) _open = !_open;
+    }
+
+    private void Close() => _open = false;
+
+    // Closes when focus leaves the component (click/tab away). Option clicks use
+    // mousedown:preventDefault so they don't steal focus and trigger this early.
+    private void HandleFocusOut() => _open = false;
+
+    private async Task SelectAsync(string value)
+    {
+        _open = false;
+        if (value != Value)
+        {
+            Value = value;
+            await ValueChanged.InvokeAsync(value);
+        }
+    }
+}

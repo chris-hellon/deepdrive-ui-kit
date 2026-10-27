@@ -1,0 +1,16 @@
+@page "/widgets/create"
+@using DeepDrive.UiKit.Demo.Components.Pages.Widgets.Shared
+
+<PageTitle>Create Widget — DeepDrive UI Kit</PageTitle>
+
+<GenericAdminCreatePage TModel="WidgetFormModel"
+                        TCreateCommand="CreateWidgetCommand"
+                        TResult="Guid"
+                        Title="Create Widget"
+                        CancelUrl="/widgets"
+                        SuccessUrl="/widgets"
+                        IsSuccessResult="id => id != Guid.Empty">
+    <FormContent Context="model">
+        <WidgetForm Model="model" />
+    </FormContent>
+</GenericAdminCreatePage>

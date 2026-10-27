@@ -1,0 +1,8 @@
+<Solution>
+  <Folder Name="/samples/">
+    <Project Path="samples/DeepDrive.UiKit.Demo/DeepDrive.UiKit.Demo.csproj" />
+  </Folder>
+  <Folder Name="/src/">
+    <Project Path="src/DeepDrive.UiKit/DeepDrive.UiKit.csproj" />
+  </Folder>
+</Solution>

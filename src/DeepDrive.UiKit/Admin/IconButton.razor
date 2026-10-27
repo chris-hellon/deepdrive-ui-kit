@@ -1,0 +1,107 @@
+@inject IJSRuntime Js
+
+@if (!string.IsNullOrEmpty(Href))
+{
+    <a href="@Href"
+       target="@Target"
+       @ref="_elementRef"
+       @onmouseenter="ShowTooltip"
+       @onmouseleave="HideTooltip"
+       class="@ButtonCss">
+        @if (Busy)
+        {
+            <svg class="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+        }
+        else
+        {
+            @ChildContent
+        }
+    </a>
+}
+else
+{
+    <button type="button"
+            @ref="_elementRef"
+            @onclick="OnClick"
+            @onmouseenter="ShowTooltip"
+            @onmouseleave="HideTooltip"
+            disabled="@IsDisabled"
+            class="@ButtonCss">
+        @if (Busy)
+        {
+            <svg class="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+        }
+        else
+        {
+            @ChildContent
+        }
+    </button>
+}
+
+@code {
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+    [Parameter] public string? Href { get; set; }
+    [Parameter] public string? Target { get; set; }
+    [Parameter] public EventCallback OnClick { get; set; }
+    [Parameter] public string? Tooltip { get; set; }
+    [Parameter] public IconButtonVariant Variant { get; set; } = IconButtonVariant.Neutral;
+    [Parameter] public bool Disabled { get; set; }
+    [Parameter] public bool Busy { get; set; }
+    [Parameter] public string? Class { get; set; }
+
+    private ElementReference _elementRef;
+
+    private bool IsDisabled => Disabled || Busy;
+
+    private string ButtonCss
+    {
+        get
+        {
+            var baseCss = "w-8 h-8 flex items-center justify-center border transition-colors";
+
+            var variantCss = Variant switch
+            {
+                IconButtonVariant.Red => "bg-red-50 border-red-200 hover:bg-red-100 text-red-600",
+                IconButtonVariant.Amber => "bg-amber-50 border-amber-200 hover:bg-amber-100 text-amber-600",
+                IconButtonVariant.Emerald => "bg-emerald-50 border-emerald-200 hover:bg-emerald-100 text-emerald-600",
+                IconButtonVariant.Blue => "bg-blue-50 border-blue-200 hover:bg-blue-100 text-blue-600",
+                _ => "bg-white border-ink/10 hover:bg-bone2 text-inksoft hover:text-ink"
+            };
+
+            var disabledCss = IsDisabled ? "opacity-50 cursor-not-allowed" : "";
+
+            return $"{baseCss} {variantCss} {disabledCss} {Class}".Trim();
+        }
+    }
+
+    private async Task ShowTooltip()
+    {
+        if (string.IsNullOrWhiteSpace(Tooltip)) return;
+        try
+        {
+            await Js.InvokeVoidAsync("tooltip.show", _elementRef, Tooltip, "top");
+        }
+        catch
+        {
+            // tooltip.js not loaded (e.g. MAUI webview / mobile) — ignore
+        }
+    }
+
+    private async Task HideTooltip()
+    {
+        try
+        {
+            await Js.InvokeVoidAsync("tooltip.hide");
+        }
+        catch
+        {
+            // ignore
+        }
+    }
+}

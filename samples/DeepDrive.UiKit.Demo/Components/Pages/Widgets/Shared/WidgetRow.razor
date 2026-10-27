@@ -1,0 +1,35 @@
+@* Row template for the Widgets admin list. Uses the kit's AdminTableColumn + icon buttons,
+   and calls back into the GenericAdminListPage for delete / activate / deactivate prompts. *@
+
+<AdminTableColumn>
+    <div class="text-sm font-medium text-ink">@Widget.Name</div>
+    <div class="flex items-center gap-1.5 mt-0.5">
+        <span class="text-xs text-taupe">@Widget.Category</span>
+        @if (!Widget.IsActive)
+        {
+            <span class="text-[10px] uppercase tracking-wider px-1.5 py-0.5 bg-bone2 text-taupe">Inactive</span>
+        }
+    </div>
+</AdminTableColumn>
+<AdminTableColumn Align="TableAlign.Right">
+    <span class="dd-mono text-sm text-ink">@Widget.PriceUsd.ToString("N0") <span class="text-taupe">USD</span></span>
+</AdminTableColumn>
+<AdminTableColumn Align="TableAlign.Right">
+    <div class="flex items-center justify-end gap-1">
+        <EditButton Href="@($"/widgets/{Widget.Id}")" />
+        @if (Widget.IsActive)
+        {
+            <DeactivateButton OnClick="@(() => ListPage?.PromptDeactivate(Widget))" />
+        }
+        else
+        {
+            <ActivateButton OnClick="@(() => ListPage?.PromptActivate(Widget))" />
+        }
+        <DeleteButton OnClick="@(() => ListPage?.PromptDelete(Widget))" />
+    </div>
+</AdminTableColumn>
+
+@code {
+    [Parameter, EditorRequired] public WidgetDto Widget { get; set; } = null!;
+    [Parameter, EditorRequired] public GenericAdminListPage<WidgetDto, SearchWidgetsResult, SearchWidgetsQuery, DeleteWidgetCommand>? ListPage { get; set; }
+}

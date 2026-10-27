@@ -1,0 +1,42 @@
+<div class="space-y-4 @Class">
+    @for (var i = 0; i < CardCount; i++)
+    {
+        <div class="bg-white p-4 md:p-6 border border-ink/10 animate-pulse">
+            @* Card title skeleton *@
+            <div class="h-4 w-32 bg-bone2 mb-4"></div>
+
+            <div class="space-y-4">
+                @for (var j = 0; j < FieldsPerCard; j++)
+                {
+                    @if (j % 2 == 0 && ShowRowLayout)
+                    {
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <div class="h-3 w-20 bg-bone2 mb-2"></div>
+                                <div class="h-10 bg-bone2"></div>
+                            </div>
+                            <div>
+                                <div class="h-3 w-24 bg-bone2 mb-2"></div>
+                                <div class="h-10 bg-bone2"></div>
+                            </div>
+                        </div>
+                    }
+                    else
+                    {
+                        <div>
+                            <div class="h-3 w-28 bg-bone2 mb-2"></div>
+                            <div class="h-10 bg-bone2"></div>
+                        </div>
+                    }
+                }
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter] public int CardCount { get; set; } = 2;
+    [Parameter] public int FieldsPerCard { get; set; } = 3;
+    [Parameter] public bool ShowRowLayout { get; set; } = true;
+    [Parameter] public string? Class { get; set; }
+}

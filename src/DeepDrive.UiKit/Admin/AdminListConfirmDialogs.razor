@@ -1,0 +1,93 @@
+@if (ShowDeleteDialog)
+{
+    <ConfirmDialog Visible="@ShowDeleteConfirm"
+                   VisibleChanged="@ShowDeleteConfirmChanged"
+                   Title="@DeleteTitle"
+                   Message="@DeleteMessage"
+                   ConfirmText="Delete"
+                   Busy="@Busy"
+                   Error="@Error"
+                   OnConfirm="@OnConfirmDelete" />
+}
+
+@if (ShowDeactivateDialog)
+{
+    <ConfirmDialog Visible="@ShowDeactivateConfirm"
+                   VisibleChanged="@ShowDeactivateConfirmChanged"
+                   Title="@DeactivateTitle"
+                   Message="@DeactivateMessage"
+                   ConfirmText="Deactivate"
+                   Busy="@Busy"
+                   Error="@Error"
+                   OnConfirm="@OnConfirmDeactivate" />
+}
+
+@if (ShowActivateDialog)
+{
+    <ConfirmDialog Visible="@ShowActivateConfirm"
+                   VisibleChanged="@ShowActivateConfirmChanged"
+                   Title="@ActivateTitle"
+                   Message="@ActivateMessage"
+                   ConfirmText="Activate"
+                   Busy="@Busy"
+                   Error="@Error"
+                   OnConfirm="@OnConfirmActivate" />
+}
+
+@code {
+    /// <summary>
+    /// The entity name (e.g., "Tour", "Course").
+    /// </summary>
+    [Parameter, EditorRequired] public string EntityName { get; set; } = "Item";
+
+    /// <summary>
+    /// The name of the currently selected item.
+    /// </summary>
+    [Parameter] public string? SelectedItemName { get; set; }
+
+    /// <summary>
+    /// Whether the operation is in progress.
+    /// </summary>
+    [Parameter] public bool Busy { get; set; }
+
+    /// <summary>
+    /// Error message to display.
+    /// </summary>
+    [Parameter] public string? Error { get; set; }
+
+    // Delete dialog
+    [Parameter] public bool ShowDeleteDialog { get; set; } = true;
+    [Parameter] public bool ShowDeleteConfirm { get; set; }
+    [Parameter] public EventCallback<bool> ShowDeleteConfirmChanged { get; set; }
+    [Parameter] public EventCallback OnConfirmDelete { get; set; }
+    [Parameter] public string? DeleteTitleOverride { get; set; }
+    [Parameter] public string? DeleteMessageOverride { get; set; }
+
+    // Deactivate dialog
+    [Parameter] public bool ShowDeactivateDialog { get; set; } = true;
+    [Parameter] public bool ShowDeactivateConfirm { get; set; }
+    [Parameter] public EventCallback<bool> ShowDeactivateConfirmChanged { get; set; }
+    [Parameter] public EventCallback OnConfirmDeactivate { get; set; }
+    [Parameter] public string? DeactivateTitleOverride { get; set; }
+    [Parameter] public string? DeactivateMessageOverride { get; set; }
+
+    // Activate dialog
+    [Parameter] public bool ShowActivateDialog { get; set; } = true;
+    [Parameter] public bool ShowActivateConfirm { get; set; }
+    [Parameter] public EventCallback<bool> ShowActivateConfirmChanged { get; set; }
+    [Parameter] public EventCallback OnConfirmActivate { get; set; }
+    [Parameter] public string? ActivateTitleOverride { get; set; }
+    [Parameter] public string? ActivateMessageOverride { get; set; }
+
+    private string DeleteTitle => DeleteTitleOverride ?? $"Delete {EntityName}";
+    private string DeleteMessage => DeleteMessageOverride ??
+        $"Are you sure you want to permanently delete '{SelectedItemName}'? This action cannot be undone.";
+
+    private string DeactivateTitle => DeactivateTitleOverride ?? $"Deactivate {EntityName}";
+    private string DeactivateMessage => DeactivateMessageOverride ??
+        $"Are you sure you want to deactivate '{SelectedItemName}'? It will no longer be available for new bookings.";
+
+    private string ActivateTitle => ActivateTitleOverride ?? $"Activate {EntityName}";
+    private string ActivateMessage => ActivateMessageOverride ??
+        $"Are you sure you want to activate '{SelectedItemName}'? It will become available for bookings again.";
+}

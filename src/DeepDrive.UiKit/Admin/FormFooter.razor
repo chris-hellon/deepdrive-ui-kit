@@ -1,0 +1,42 @@
+<div class="bg-white border-t border-ink/10 px-4 md:px-6 py-3 flex items-center justify-center md:justify-end gap-3">
+    @if (ShowCancel)
+    {
+        <a href="@CancelUrl"
+           class="hidden md:inline-flex px-5 py-2.5 text-xs bg-white border border-ink/10 hover:bg-bone2 text-ink uppercase tracking-wider font-bold transition-colors">
+            @CancelText
+        </a>
+    }
+    @if (OnDelete.HasDelegate)
+    {
+        <button disabled="@IsDeleting" @onclick="OnDelete"
+                class="px-5 py-2.5 text-xs bg-red-500 hover:bg-red-600 text-white uppercase tracking-wider font-bold transition-colors disabled:opacity-50">
+            @(IsDeleting ? "Deleting..." : DeleteText)
+        </button>
+    }
+    @if (OnSave.HasDelegate)
+    {
+        <button disabled="@(IsSaving || SaveDisabled)" @onclick="OnSave"
+                class="px-5 py-2.5 text-xs bg-emerald-500 hover:bg-emerald-400 text-white uppercase tracking-wider font-bold transition-colors disabled:opacity-50">
+            @(IsSaving ? SavingText : SaveText)
+        </button>
+    }
+    @AdditionalButtons
+</div>
+
+@code {
+    [Parameter] public bool ShowCancel { get; set; } = true;
+    [Parameter] public string CancelUrl { get; set; } = "#";
+    [Parameter] public string CancelText { get; set; } = "Cancel";
+
+    [Parameter] public EventCallback OnSave { get; set; }
+    [Parameter] public string SaveText { get; set; } = "Save";
+    [Parameter] public string SavingText { get; set; } = "Saving...";
+    [Parameter] public bool IsSaving { get; set; }
+    [Parameter] public bool SaveDisabled { get; set; }
+
+    [Parameter] public EventCallback OnDelete { get; set; }
+    [Parameter] public string DeleteText { get; set; } = "Delete";
+    [Parameter] public bool IsDeleting { get; set; }
+
+    [Parameter] public RenderFragment? AdditionalButtons { get; set; }
+}

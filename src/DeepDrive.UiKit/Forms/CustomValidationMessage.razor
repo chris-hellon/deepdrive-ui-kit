@@ -1,0 +1,11 @@
+@using System.Linq.Expressions
+@typeparam TValue
+
+@if (EditContext is not null)
+{
+    <ValidationMessage For="@For" class="text-red-400 text-xs"/>
+}
+@code {
+    [Parameter, EditorRequired] public required Expression<Func<TValue>> For { get; set; }
+    [CascadingParameter] public EditContext? EditContext { get; set; }
+}

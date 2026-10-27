@@ -1,0 +1,12 @@
+@* Header nav link with an emerald active state, styled with the kit's mono "instrument" labels. *@
+<NavLink href="@Href" Match="Match"
+         class="px-3 py-2 dd-mono text-[10.5px] font-semibold tracking-[0.16em] uppercase no-underline text-bone/60 hover:text-bone transition-colors"
+         ActiveClass="!text-emerald-300">
+    @ChildContent
+</NavLink>
+
+@code {
+    [Parameter, EditorRequired] public string Href { get; set; } = "";
+    [Parameter] public NavLinkMatch Match { get; set; } = NavLinkMatch.Prefix;
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+}

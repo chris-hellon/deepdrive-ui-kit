@@ -1,0 +1,83 @@
+@page "/components"
+
+<PageTitle>Components — DeepDrive UI Kit</PageTitle>
+
+<div class="max-w-4xl mx-auto px-5 py-12">
+    <div class="flex items-center gap-2.5">
+        <span class="w-[7px] h-[7px] bg-emerald-500"></span>
+        <span class="dd-mono text-[10.5px] font-semibold tracking-[0.22em] uppercase text-taupe">Gallery</span>
+    </div>
+    <h1 class="mt-3 font-sora font-extrabold text-4xl tracking-[-0.03em] text-ink">Components</h1>
+    <p class="mt-3 text-inksoft leading-relaxed">A quick tour of the form inputs, buttons and design tokens.</p>
+
+    @* Buttons *@
+    <section class="mt-12">
+        <SectionLabel>Buttons</SectionLabel>
+        <div class="flex flex-wrap items-center gap-3">
+            <button class="btn btn-primary btn-md">Primary</button>
+            <button class="btn btn-dark btn-md">Dark</button>
+            <button class="btn btn-outline-dark btn-md">Outline</button>
+            <AppButton Text="AppButton" Variant="AppButton.ButtonVariant.Primary" />
+        </div>
+    </section>
+
+    @* Form inputs *@
+    <section class="mt-12">
+        <SectionLabel>Form inputs</SectionLabel>
+        <div class="border border-ink/10 bg-bone p-6 space-y-5">
+            <DeepDriveInputText Label="Full name" @bind-Value="_name" Placeholder="Rory McIlroy" Hint="As it appears on the scorecard." />
+            <div class="grid md:grid-cols-2 gap-5">
+                <DeepDriveInputNumber T="int" Label="Handicap" @bind-Value="_handicap" Placeholder="0" />
+                <DeepDriveSelect Label="Home club" @bind-Value="_club" Options="_clubs" Placeholder="Select a club" />
+            </div>
+            <div class="grid md:grid-cols-2 gap-5">
+                <DeepDriveDatePicker Label="Next round" @bind-Value="_date" Placeholder="Pick a date" />
+                <DeepDriveSearchSelect TItem="string" Label="Favourite course" Items="_courses" @bind-Value="_course" DisplayTextFunc="c => c" Placeholder="Search courses..." />
+            </div>
+            <DeepDriveInputTextarea Label="Notes" @bind-Value="_notes" Rows="3" Placeholder="Anything else?" />
+        </div>
+    </section>
+
+    @* Toasts *@
+    <section class="mt-12">
+        <SectionLabel>Toasts</SectionLabel>
+        <div class="flex flex-wrap gap-3">
+            <button class="btn btn-primary btn-sm" @onclick="@(() => ToastBroker.Success("Saved successfully."))">Success toast</button>
+            <button class="btn btn-dark btn-sm" @onclick="@(() => ToastBroker.Error("Something went wrong."))">Error toast</button>
+        </div>
+    </section>
+
+    @* Design tokens *@
+    <section class="mt-12 mb-8">
+        <SectionLabel>Palette</SectionLabel>
+        <div class="grid grid-cols-3 md:grid-cols-6 gap-3">
+            <Swatch Color="bg-plate" Name="plate" Dark="true" />
+            <Swatch Color="bg-ink" Name="ink" Dark="true" />
+            <Swatch Color="bg-emerald-500" Name="emerald" Dark="true" />
+            <Swatch Color="bg-paper" Name="paper" />
+            <Swatch Color="bg-bone2" Name="bone2" />
+            <Swatch Color="bg-bone border border-ink/10" Name="bone" />
+        </div>
+    </section>
+</div>
+
+@code {
+    private string _name = "";
+    private int _handicap;
+    private string _club = "";
+    private string _notes = "";
+    private DateOnly? _date;
+    private string? _course;
+
+    private readonly List<DeepDriveSelect.SelectOption> _clubs =
+    [
+        new("augusta", "Augusta National"),
+        new("standrews", "St Andrews"),
+        new("pebble", "Pebble Beach"),
+    ];
+
+    private readonly List<string> _courses =
+    [
+        "Ba Na Hills", "Montgomerie Links", "Laguna Lăng Cô", "Hoiana Shores", "BRG Da Nang",
+    ];
+}

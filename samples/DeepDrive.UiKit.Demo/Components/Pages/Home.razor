@@ -1,0 +1,52 @@
+﻿@page "/"
+
+<PageTitle>DeepDrive UI Kit</PageTitle>
+
+@* Dark cinematic hero — the kit's signature plate + contour + mono instrument labels. *@
+<section class="relative overflow-hidden bg-plate text-bone">
+    <div class="absolute inset-0 dd-contour opacity-80"></div>
+    <div class="relative max-w-6xl mx-auto px-5 py-20 md:py-28">
+        <div class="flex items-center gap-2.5">
+            <span class="w-[7px] h-[7px] bg-emerald-500"></span>
+            <span class="dd-mono text-[10.5px] font-semibold tracking-[0.22em] uppercase text-emerald-300">Blazor component library</span>
+        </div>
+        <h1 class="mt-5 font-sora font-extrabold text-[44px] md:text-[64px] leading-[0.95] tracking-[-0.04em] max-w-3xl">
+            A dark, editorial admin kit for Blazor.
+        </h1>
+        <p class="mt-6 text-lg leading-relaxed text-bone/70 max-w-2xl">
+            Generic CRUD pages, a complete form component set, and an "art-direction" design system —
+            extracted from the DeepDrive golf platform. Drop in your EasyApi contracts and get a styled
+            list / create / edit flow with validation, confirmations and toasts for free.
+        </p>
+        <div class="mt-9 flex flex-wrap gap-3">
+            <a href="/widgets" class="btn btn-primary btn-md no-underline">See the admin demo</a>
+            <a href="/components" class="btn btn-outline btn-md no-underline">Browse components</a>
+        </div>
+    </div>
+</section>
+
+<section class="max-w-6xl mx-auto px-5 py-16">
+    <div class="grid md:grid-cols-3 gap-5">
+        <FeatureCard Label="Admin framework"
+                     Title="Generic CRUD pages"
+                     Body="GenericAdminListPage / Create / Edit drive search, pagination, delete, activate and validation from your typed contracts — minimal page code." />
+        <FeatureCard Label="Form components"
+                     Title="Consistent inputs"
+                     Body="Text, number, select, searchable select, date pickers and textarea — all with labels, hints and FluentValidation messages built in." />
+        <FeatureCard Label="Design system"
+                     Title="Dark art direction"
+                     Body="Sora display type, mono instrument readouts, warm paper + cinematic plates, and a topographic contour texture — all as Tailwind tokens." />
+    </div>
+
+    <div class="mt-12 border border-ink/10 bg-paper2 p-6 md:p-8">
+        <div class="flex items-center gap-2.5 mb-3">
+            <span class="w-[7px] h-[7px] bg-emerald-500"></span>
+            <span class="dd-mono text-[10.5px] font-semibold tracking-[0.22em] uppercase text-inksoft">Get started</span>
+        </div>
+        <p class="text-ink/80 leading-relaxed">
+            Reference <code class="dd-mono text-sm bg-bone px-1.5 py-0.5 border border-ink/10">DeepDrive.UiKit</code>,
+            link <code class="dd-mono text-sm bg-bone px-1.5 py-0.5 border border-ink/10">_content/DeepDrive.UiKit/css/deepdrive-ui.css</code>,
+            register EasyApi, and your admin screens look like this one. See the README for the full walkthrough.
+        </p>
+    </div>
+</section>

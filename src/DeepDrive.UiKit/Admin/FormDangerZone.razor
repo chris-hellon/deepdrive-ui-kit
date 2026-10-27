@@ -1,0 +1,109 @@
+@* Danger zone section with built-in confirm dialog *@
+
+<FormCard Title="Danger Zone" IsDanger="true">
+    <div class="flex items-center justify-between">
+        <div>
+            <h4 class="font-bold text-red-700">@Title</h4>
+            <p class="text-xs text-red-600">@Description</p>
+        </div>
+        <AdminButton Text="@ButtonText" Type="AdminButton.ButtonType.Danger" OnClick="@ShowConfirmDialog" />
+    </div>
+</FormCard>
+
+<ConfirmDialog Visible="@_showConfirm"
+               VisibleChanged="@(v => _showConfirm = v)"
+               Title="@ConfirmTitle"
+               Message="@ConfirmMessage"
+               ConfirmText="@ConfirmButtonText"
+               Busy="_confirmBusy"
+               Error="@_confirmError"
+               OnConfirm="OnConfirmClick" />
+
+@code {
+    /// <summary>
+    /// Title shown in the danger zone card.
+    /// </summary>
+    [Parameter] public string Title { get; set; } = "Delete Item";
+
+    /// <summary>
+    /// Description text shown below the title.
+    /// </summary>
+    [Parameter] public string Description { get; set; } = "This action cannot be undone.";
+
+    /// <summary>
+    /// Text for the danger button.
+    /// </summary>
+    [Parameter] public string ButtonText { get; set; } = "Delete";
+
+    /// <summary>
+    /// Title for the confirmation dialog.
+    /// </summary>
+    [Parameter] public string ConfirmTitle { get; set; } = "Confirm Delete";
+
+    /// <summary>
+    /// Message shown in the confirmation dialog.
+    /// </summary>
+    [Parameter] public string ConfirmMessage { get; set; } = "Are you sure you want to delete this item? This action cannot be undone.";
+
+    /// <summary>
+    /// Text for the confirm button in the dialog.
+    /// </summary>
+    [Parameter] public string ConfirmButtonText { get; set; } = "Delete";
+
+    /// <summary>
+    /// Callback invoked when the user confirms the action.
+    /// Returns true if successful, false if there was an error.
+    /// </summary>
+    [Parameter] public Func<Task<(bool Success, string? ErrorMessage)>>? OnConfirm { get; set; }
+
+    /// <summary>
+    /// Simple callback invoked when the user confirms the action.
+    /// Use this for simple cases where you handle errors yourself.
+    /// </summary>
+    [Parameter] public EventCallback OnConfirmSimple { get; set; }
+
+    private bool _showConfirm;
+    private bool _confirmBusy;
+    private string? _confirmError;
+
+    private void ShowConfirmDialog()
+    {
+        _confirmError = null;
+        _showConfirm = true;
+    }
+
+    private async Task OnConfirmClick()
+    {
+        _confirmBusy = true;
+        _confirmError = null;
+
+        try
+        {
+            if (OnConfirm is not null)
+            {
+                var result = await OnConfirm();
+                if (result.Success)
+                {
+                    _showConfirm = false;
+                }
+                else
+                {
+                    _confirmError = result.ErrorMessage ?? "An error occurred.";
+                }
+            }
+            else if (OnConfirmSimple.HasDelegate)
+            {
+                await OnConfirmSimple.InvokeAsync();
+                _showConfirm = false;
+            }
+        }
+        catch (Exception ex)
+        {
+            _confirmError = ex.Message;
+        }
+        finally
+        {
+            _confirmBusy = false;
+        }
+    }
+}

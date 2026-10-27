@@ -1,0 +1,29 @@
+<div class="@GetContainerClass()">
+    @if (!string.IsNullOrWhiteSpace(Title))
+    {
+        <h3 class="ed-micro mb-4 @(IsDanger ? "text-red-700" : "text-taupe")">@Title</h3>
+    }
+    @if (!string.IsNullOrWhiteSpace(Subtitle))
+    {
+        <p class="text-xs mb-4 @(IsDanger ? "text-red-600" : "text-taupe")">@Subtitle</p>
+    }
+    <div class="space-y-4">
+        @ChildContent
+    </div>
+</div>
+
+@code {
+    [Parameter] public string? Title { get; set; }
+    [Parameter] public string? Subtitle { get; set; }
+    [Parameter] public string? Class { get; set; }
+    [Parameter] public bool IsDanger { get; set; }
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+
+    private string GetContainerClass()
+    {
+        var baseClass = IsDanger
+            ? "bg-red-50 p-4 md:p-6 border border-red-200"
+            : "bg-white p-4 md:p-6 border border-ink/10";
+        return string.IsNullOrWhiteSpace(Class) ? baseClass : $"{baseClass} {Class}";
+    }
+}

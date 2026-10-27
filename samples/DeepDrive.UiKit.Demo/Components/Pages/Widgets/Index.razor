@@ -1,0 +1,35 @@
+@page "/widgets"
+@using DeepDrive.UiKit.Demo.Components.Pages.Widgets.Shared
+@inject ICall<ToggleWidgetActiveCommand, bool> ToggleActive
+
+<PageTitle>Widgets — DeepDrive UI Kit</PageTitle>
+
+<GenericAdminListPage @ref="_listPage"
+                      TItem="WidgetDto"
+                      TResult="SearchWidgetsResult"
+                      TSearchQuery="SearchWidgetsQuery"
+                      TDeleteCommand="DeleteWidgetCommand"
+                      Title="Widgets"
+                      EntityName="Widget"
+                      CreateUrl="/widgets/create"
+                      SearchPlaceholder="Search widgets..."
+                      SupportsDelete="true"
+                      SupportsToggleActive="true"
+                      SupportsActiveFilter="true"
+                      ToggleActiveCallback="OnToggleActive">
+    <TableHeaderContent>
+        <AdminTableHeader Title="Name" />
+        <AdminTableHeader Title="Price" Align="TableAlign.Right" />
+        <AdminTableHeader Title="Actions" Align="TableAlign.Right" />
+    </TableHeaderContent>
+    <RowTemplate Context="item">
+        <WidgetRow Widget="item" ListPage="_listPage" />
+    </RowTemplate>
+</GenericAdminListPage>
+
+@code {
+    private GenericAdminListPage<WidgetDto, SearchWidgetsResult, SearchWidgetsQuery, DeleteWidgetCommand>? _listPage;
+
+    private async Task OnToggleActive((Guid Id, bool IsActive) args)
+        => await ToggleActive.Call(new ToggleWidgetActiveCommand { Id = args.Id, IsActive = args.IsActive });
+}

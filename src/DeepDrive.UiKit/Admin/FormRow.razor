@@ -1,0 +1,9 @@
+<div class="grid grid-cols-1 md:grid-cols-@Columns gap-4 @Class">
+    @ChildContent
+</div>
+
+@code {
+    [Parameter] public int Columns { get; set; } = 2;
+    [Parameter] public string? Class { get; set; }
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+}

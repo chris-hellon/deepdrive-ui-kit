@@ -1,0 +1,56 @@
+@namespace DeepDrive.UiKit.Admin
+@* Reusable table cell component *@
+
+<td class="px-4 py-3 @AlignClass @DefaultTextClass @Class">
+    @if (ChildContent is not null)
+    {
+        @ChildContent
+    }
+    else if (!string.IsNullOrEmpty(Text))
+    {
+        @Text
+    }
+</td>
+
+@code {
+    /// <summary>
+    /// Child content for complex cells. When provided, no default text styling is applied.
+    /// </summary>
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+
+    /// <summary>
+    /// Simple text content. Automatically applies "text-sm text-neutral-600" styling.
+    /// Use Muted="true" for lighter "text-sm text-neutral-500" styling.
+    /// </summary>
+    [Parameter] public string? Text { get; set; }
+
+    /// <summary>
+    /// When true, uses muted styling (text-neutral-500) instead of default (text-neutral-600).
+    /// Only applies when using Text parameter.
+    /// </summary>
+    [Parameter] public bool Muted { get; set; }
+
+    /// <summary>
+    /// Cell alignment. Defaults to Left.
+    /// </summary>
+    [Parameter] public TableAlign Align { get; set; } = TableAlign.Left;
+
+    /// <summary>
+    /// Additional CSS classes. Overrides default text styling if needed.
+    /// For Text cells, defaults are already applied so you only need color/weight overrides.
+    /// </summary>
+    [Parameter] public string? Class { get; set; }
+
+    private string AlignClass => Align switch
+    {
+        TableAlign.Right => "text-right",
+        TableAlign.Left => "text-left",
+        TableAlign.Center => "text-center",
+        _ => ""
+    };
+
+    // Only apply default text styling when using Text parameter (not ChildContent)
+    private string DefaultTextClass => ChildContent is null && !string.IsNullOrEmpty(Text)
+        ? Muted ? "text-sm text-taupe" : "text-sm text-inksoft"
+        : "";
+}

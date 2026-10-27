@@ -1,0 +1,11 @@
+<div>
+    <div class="h-16 @Color flex items-end p-2">
+        <span class="dd-mono text-[9px] font-semibold tracking-[0.14em] uppercase @(Dark ? "text-bone/70" : "text-ink/60")">@Name</span>
+    </div>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public string Color { get; set; } = "";
+    [Parameter, EditorRequired] public string Name { get; set; } = "";
+    [Parameter] public bool Dark { get; set; }
+}

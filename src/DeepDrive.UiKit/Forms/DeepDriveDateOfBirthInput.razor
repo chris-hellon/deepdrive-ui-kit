@@ -1,0 +1,188 @@
+@inject IJSRuntime JS
+
+<div class="relative">
+    @if (!string.IsNullOrEmpty(Label))
+    {
+        <label class="block text-xs uppercase tracking-wider text-neutral-500 mb-1">@Label</label>
+    }
+
+    <input type="text"
+           id="@_domId"
+           value="@_displayValue"
+           @oninput="OnInput"
+           @onblur="OnBlur"
+           class="@InputCss"
+           placeholder="@(Placeholder ?? "DD/MM/YYYY")"
+           maxlength="10"
+           inputmode="numeric"
+           disabled="@Disabled" />
+</div>
+
+@code {
+    [Parameter] public DateOnly? Value { get; set; }
+    [Parameter] public EventCallback<DateOnly?> ValueChanged { get; set; }
+    [Parameter] public string? Label { get; set; }
+    [Parameter] public string? Placeholder { get; set; }
+    [Parameter] public string? Class { get; set; }
+    [Parameter] public InputSize InputSize { get; set; } = InputSize.Medium;
+    [Parameter] public bool Rounded { get; set; } = true;
+    [Parameter] public bool Disabled { get; set; }
+    [Parameter] public bool Compact { get; set; }
+
+    private string _domId = $"dob-{Guid.NewGuid():N}";
+    private string _displayValue = "";
+    private string _previousValue = "";
+
+    protected override void OnParametersSet()
+    {
+        // Only update display if value changed externally
+        if (Value.HasValue)
+        {
+            var formatted = Value.Value.ToString("dd/MM/yyyy");
+            if (_displayValue != formatted && !IsUserTyping())
+            {
+                _displayValue = formatted;
+            }
+        }
+        else if (string.IsNullOrEmpty(_displayValue))
+        {
+            _displayValue = "";
+        }
+    }
+
+    private bool IsUserTyping()
+    {
+        // If display value is incomplete, user is still typing
+        return !string.IsNullOrEmpty(_displayValue) && _displayValue.Length < 10;
+    }
+
+    private string InputCss
+    {
+        get
+        {
+            var css = "w-full bg-white border border-neutral-200 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500";
+
+            css += InputSize switch
+            {
+                InputSize.Large => " px-4 py-3",
+                InputSize.Small => " px-3 py-2 text-xs",
+                _ => Compact ? " px-4 py-2.5 text-sm" : " px-4 py-3"
+            };
+
+            if (Rounded) css += " rounded-lg";
+            if (!string.IsNullOrEmpty(Class)) css += " " + Class;
+
+            return css;
+        }
+    }
+
+    private async Task OnInput(ChangeEventArgs e)
+    {
+        var input = e.Value?.ToString() ?? "";
+
+        // Strip non-numeric characters except slashes
+        var digitsOnly = new string(input.Where(char.IsDigit).ToArray());
+
+        // Build formatted string with auto-slashes
+        var formatted = FormatDateInput(digitsOnly);
+
+        _displayValue = formatted;
+        _previousValue = formatted;
+
+        // Try to parse if we have a complete date
+        if (formatted.Length == 10)
+        {
+            if (TryParseDate(formatted, out var date))
+            {
+                Value = date;
+                await ValueChanged.InvokeAsync(date);
+            }
+        }
+        else
+        {
+            // Incomplete - clear the value
+            if (Value.HasValue)
+            {
+                Value = null;
+                await ValueChanged.InvokeAsync(null);
+            }
+        }
+
+        // Update the input field to show formatted value
+        await JS.InvokeVoidAsync("eval", $"document.getElementById('{_domId}').value = '{formatted}'");
+    }
+
+    private async Task OnBlur(FocusEventArgs e)
+    {
+        // Validate on blur
+        if (_displayValue.Length == 10)
+        {
+            if (!TryParseDate(_displayValue, out var date))
+            {
+                // Invalid date - clear
+                _displayValue = "";
+                Value = null;
+                await ValueChanged.InvokeAsync(null);
+            }
+        }
+        else if (_displayValue.Length is > 0 and < 10)
+        {
+            // Incomplete date - clear
+            _displayValue = "";
+            Value = null;
+            await ValueChanged.InvokeAsync(null);
+        }
+    }
+
+    private static string FormatDateInput(string digits)
+    {
+        if (string.IsNullOrEmpty(digits))
+            return "";
+
+        var result = "";
+
+        for (var i = 0; i < digits.Length && i < 8; i++)
+        {
+            result += digits[i];
+
+            // Add slash after day (position 2) and month (position 4)
+            if (i == 1 && digits.Length > 2)
+                result += "/";
+            else if (i == 3 && digits.Length > 4)
+                result += "/";
+        }
+
+        return result;
+    }
+
+    private static bool TryParseDate(string formatted, out DateOnly date)
+    {
+        date = default;
+
+        if (formatted.Length != 10)
+            return false;
+
+        var parts = formatted.Split('/');
+        if (parts.Length != 3)
+            return false;
+
+        if (!int.TryParse(parts[0], out var day) ||
+            !int.TryParse(parts[1], out var month) ||
+            !int.TryParse(parts[2], out var year))
+            return false;
+
+        // Basic validation
+        if (day < 1 || day > 31 || month < 1 || month > 12 || year < 1900 || year > DateTime.Now.Year)
+            return false;
+
+        try
+        {
+            date = new DateOnly(year, month, day);
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+}

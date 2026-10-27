@@ -1,0 +1,149 @@
+@namespace DeepDrive.UiKit.Admin
+@typeparam TItem
+
+<div class="bg-white border border-ink/10 overflow-hidden">
+    @if (Loading)
+    {
+        <div class="animate-pulse">
+            <table class="w-full">
+                <thead class="bg-bone2 border-b border-ink/10">
+                    <tr>
+                        @for (var i = 0; i < SkeletonColumns; i++)
+                        {
+                            <th class="px-4 py-3 text-left"><div class="h-3 w-16 bg-ink/10"></div></th>
+                        }
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-ink/10">
+                    @for (var i = 0; i < SkeletonRows; i++)
+                    {
+                        <tr>
+                            @for (var j = 0; j < SkeletonColumns; j++)
+                            {
+                                <td class="px-4 py-3"><div class="h-4 w-24 bg-bone2"></div></td>
+                            }
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+    else if (Items is null || !Items.Any())
+    {
+        <div class="flex flex-col items-center justify-center py-16">
+            <div class="bg-bone2 border border-ink/10 p-6 mb-4 text-taupe">
+                @if (EmptyIcon is not null)
+                {
+                    @EmptyIcon
+                }
+                else
+                {
+                    <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect width="18" height="18" x="3" y="4" rx="2" ry="2"/><line x1="16" x2="16" y1="2" y2="6"/><line x1="8" x2="8" y1="2" y2="6"/><line x1="3" x2="21" y1="10" y2="10"/></svg>
+                }
+            </div>
+            <p class="ed-display text-lg text-ink">@(EmptyTitle ?? "No items found")</p>
+            @if (!string.IsNullOrEmpty(EmptySubtitle))
+            {
+                <p class="text-taupe text-sm mt-1">@EmptySubtitle</p>
+            }
+            @if (EmptyAction is not null)
+            {
+                <div class="mt-4">
+                    @EmptyAction
+                </div>
+            }
+        </div>
+    }
+    else
+    {
+        @* Mobile: card layout (when a CardTemplate is supplied) *@
+        @if (CardTemplate is not null)
+        {
+            <div class="lg:hidden divide-y divide-ink/10">
+                @foreach (var item in Items)
+                {
+                    <div class="p-4">
+                        @CardTemplate(item)
+                    </div>
+                }
+            </div>
+        }
+
+        @* Desktop: table (hidden on mobile when cards are available) *@
+        <div class="overflow-x-auto @(CardTemplate is not null ? "hidden lg:block" : "")">
+            <table class="w-full">
+                <thead class="bg-bone2 border-b border-ink/10">
+                    <tr>
+                        @HeaderContent
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-ink/10">
+                    @foreach (var item in Items)
+                    {
+                        <tr class="hover:bg-bone2/50 transition-colors">
+                            @RowContent(item)
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+</div>
+
+@if (!Loading && Items is not null && Items.Any() && TotalPages > 1)
+{
+    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mt-4">
+        <div class="ed-micro text-taupe">
+            Showing @(((Page - 1) * PageSize) + 1) - @Math.Min(Page * PageSize, TotalCount) of @TotalCount
+        </div>
+        <div class="flex items-center justify-between sm:justify-end gap-2">
+            <button @onclick="OnPreviousPage" disabled="@(Page <= 1)"
+                    class="px-4 py-2 text-xs font-bold uppercase tracking-wider transition-colors @(Page <= 1 ? "bg-bone2 text-taupe/40 cursor-not-allowed" : "bg-white border border-ink/10 hover:bg-bone2 text-ink")">
+                Previous
+            </button>
+            <span class="px-3 py-2 ed-micro text-taupe">Page @Page of @TotalPages</span>
+            <button @onclick="OnNextPage" disabled="@(Page >= TotalPages)"
+                    class="px-4 py-2 text-xs font-bold uppercase tracking-wider transition-colors @(Page >= TotalPages ? "bg-bone2 text-taupe/40 cursor-not-allowed" : "bg-white border border-ink/10 hover:bg-bone2 text-ink")">
+                Next
+            </button>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter, EditorRequired] public IEnumerable<TItem>? Items { get; set; }
+    [Parameter, EditorRequired] public RenderFragment? HeaderContent { get; set; }
+    [Parameter, EditorRequired] public RenderFragment<TItem> RowContent { get; set; } = default!;
+
+    /// <summary>Optional mobile card layout. When set, cards render on small screens and the table on md+.</summary>
+    [Parameter] public RenderFragment<TItem>? CardTemplate { get; set; }
+
+    [Parameter] public bool Loading { get; set; }
+    [Parameter] public int SkeletonColumns { get; set; } = 5;
+    [Parameter] public int SkeletonRows { get; set; } = 10;
+
+    [Parameter] public string? EmptyTitle { get; set; }
+    [Parameter] public string? EmptySubtitle { get; set; }
+    [Parameter] public RenderFragment? EmptyIcon { get; set; }
+    [Parameter] public RenderFragment? EmptyAction { get; set; }
+
+    [Parameter] public int Page { get; set; } = 1;
+    [Parameter] public int PageSize { get; set; } = 20;
+    [Parameter] public int TotalCount { get; set; }
+    [Parameter] public EventCallback PreviousPage { get; set; }
+    [Parameter] public EventCallback NextPage { get; set; }
+
+    private int TotalPages => PageSize > 0 ? (int)Math.Ceiling((double)TotalCount / PageSize) : 0;
+
+    private async Task OnPreviousPage()
+    {
+        if (PreviousPage.HasDelegate)
+            await PreviousPage.InvokeAsync();
+    }
+
+    private async Task OnNextPage()
+    {
+        if (NextPage.HasDelegate)
+            await NextPage.InvokeAsync();
+    }
+}

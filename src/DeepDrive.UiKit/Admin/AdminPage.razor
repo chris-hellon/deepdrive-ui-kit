@@ -1,0 +1,203 @@
+@implements IAsyncDisposable
+@inject IJSRuntime Js
+
+<SaveOverlay Visible="@(IsSaving || IsDeleting)" Message="@(IsDeleting ? "Deleting..." : SavingText)" />
+
+<div class="flex flex-col h-full bg-bone">
+    <AdminHeader Title="@Title" Subtitle="@Subtitle" BackUrl="@BackUrl" ShowBackButton="ShowBackButton" IsScrolled="_isScrolled">
+        <HeaderActions>
+            @HeaderActions
+            @if (ShowFilters)
+            {
+                <FilterToggleButton IsActive="_filterVisible" OnClick="ToggleFilterVisible" />
+            }
+        </HeaderActions>
+        <HeaderContent>
+            @HeaderContent
+        </HeaderContent>
+    </AdminHeader>
+
+    @if (SubNavigation is not null)
+    {
+        @SubNavigation
+    }
+
+    <div class="flex-1 overflow-y-auto @(ShowContentPadding ? "px-4 md:px-6 py-4 md:py-6" : "")" @ref="_scrollContainer" @onscroll="OnScroll">
+        @if (Loading)
+        {
+            @if (LoadingSkeleton is not null)
+            {
+                @LoadingSkeleton
+            }
+            else
+            {
+                <div class="@(ShowContentPadding ? "" : "px-4 md:px-6 py-4 md:py-6")">
+                    <LoadingSpinner />
+                </div>
+            }
+        }
+        else if (!string.IsNullOrWhiteSpace(LoadError))
+        {
+            <div class="@(ShowContentPadding ? "" : "px-4 md:px-6 py-4 md:py-6")">
+                <AlertBox Message="@LoadError" />
+            </div>
+        }
+        else
+        {
+            @if (!string.IsNullOrWhiteSpace(Error) || !string.IsNullOrWhiteSpace(Success))
+            {
+                <div class="@(ShowContentPadding ? "" : "px-4 md:px-6 pt-4")">
+                    <AlertBox Message="@Error" Class="mb-4" />
+                    <AlertBox Message="@Success" Type="AlertBox.AlertType.Success" Class="mb-4" />
+                </div>
+            }
+
+            @* Filter Section *@
+            @if (ShowFilters && _filterVisible)
+            {
+                <div class="bg-white border-b border-ink/10 px-4 md:px-6 py-3">
+                    <div class="space-y-3">
+                        <DeepDriveInputText Placeholder="@SearchPlaceholder"
+                                            @bind-Value="SearchValue"
+                                            OnInputChanged="HandleSearchInputChanged"
+                                            InputSize="InputSize.Small" />
+                        @if (FilterContent is not null)
+                        {
+                            <div class="flex items-center gap-3 flex-wrap">
+                                @FilterContent
+                                @if (HasActiveFilters)
+                                {
+                                    <button class="ed-micro text-taupe hover:text-ink underline"
+                                            @onclick="@(() => OnClearFilters.InvokeAsync())">Clear all</button>
+                                }
+                            </div>
+                        }
+                    </div>
+                </div>
+            }
+
+            @* List Content Wrapper - adds padding for list pages *@
+            @if (ShowFilters && !ShowContentPadding)
+            {
+                <div class="px-4 md:px-6 py-4 md:py-6">
+                    @ChildContent
+                </div>
+            }
+            else
+            {
+                @ChildContent
+            }
+        }
+    </div>
+
+    @if (!Loading && string.IsNullOrWhiteSpace(LoadError) && Footer is not null)
+    {
+        @Footer
+    }
+    else if (!Loading && string.IsNullOrWhiteSpace(LoadError) && ShowDefaultFooter)
+    {
+        <FormFooter CancelUrl="@CancelUrl"
+                    OnSave="OnSave"
+                    SaveText="@SaveText"
+                    SavingText="@SavingText"
+                    IsSaving="IsSaving"
+                    OnDelete="OnDelete"
+                    IsDeleting="IsDeleting" />
+    }
+
+</div>
+
+@code {
+    [Parameter, EditorRequired] public string Title { get; set; } = string.Empty;
+    [Parameter] public string? Subtitle { get; set; }
+    [Parameter] public string? BackUrl { get; set; }
+    [Parameter] public bool ShowBackButton { get; set; } = true;
+    [Parameter] public RenderFragment? HeaderActions { get; set; }
+    [Parameter] public RenderFragment? HeaderContent { get; set; }
+    [Parameter] public RenderFragment? SubNavigation { get; set; }
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+    [Parameter] public RenderFragment? Footer { get; set; }
+    [Parameter] public RenderFragment? LoadingSkeleton { get; set; }
+
+    // Content area options
+    [Parameter] public bool ShowContentPadding { get; set; } = true;
+
+    // Loading state
+    [Parameter] public bool Loading { get; set; }
+    [Parameter] public string? LoadError { get; set; }
+
+    // Messages
+    [Parameter] public string? Error { get; set; }
+    [Parameter] public string? Success { get; set; }
+
+    // Filter section
+    [Parameter] public bool ShowFilters { get; set; }
+    [Parameter] public bool FilterVisible { get; set; }
+    [Parameter] public EventCallback<bool> FilterVisibleChanged { get; set; }
+    [Parameter] public string SearchValue { get; set; } = string.Empty;
+    [Parameter] public EventCallback<string> SearchValueChanged { get; set; }
+    [Parameter] public string SearchPlaceholder { get; set; } = "Search...";
+    [Parameter] public EventCallback OnSearch { get; set; }
+    [Parameter] public RenderFragment? FilterContent { get; set; }
+    [Parameter] public bool HasActiveFilters { get; set; }
+    [Parameter] public EventCallback OnClearFilters { get; set; }
+
+    // Default footer options
+    [Parameter] public bool ShowDefaultFooter { get; set; } = true;
+    [Parameter] public string CancelUrl { get; set; } = "#";
+    [Parameter] public EventCallback OnSave { get; set; }
+    [Parameter] public string SaveText { get; set; } = "Save";
+    [Parameter] public string SavingText { get; set; } = "Saving...";
+    [Parameter] public bool IsSaving { get; set; }
+    [Parameter] public EventCallback OnDelete { get; set; }
+    [Parameter] public bool IsDeleting { get; set; }
+
+    // Scroll tracking
+    private ElementReference _scrollContainer;
+    private bool _isScrolled;
+    private DotNetObjectReference<AdminPage>? _dotNetRef;
+    private bool _filterVisible;
+
+    protected override void OnParametersSet()
+    {
+        _filterVisible = FilterVisible;
+    }
+
+    private async Task ToggleFilterVisible()
+    {
+        _filterVisible = !_filterVisible;
+        await FilterVisibleChanged.InvokeAsync(_filterVisible);
+    }
+
+    private async Task HandleSearchInputChanged(ChangeEventArgs _)
+    {
+        await SearchValueChanged.InvokeAsync(SearchValue);
+        await OnSearch.InvokeAsync();
+    }
+
+    protected override void OnAfterRender(bool firstRender)
+    {
+        if (firstRender)
+        {
+            _dotNetRef = DotNetObjectReference.Create(this);
+        }
+    }
+
+    private async Task OnScroll()
+    {
+        try
+        {
+            var scrollTop = await Js.InvokeAsync<double>("eval", "arguments[0].scrollTop", _scrollContainer);
+            var wasScrolled = _isScrolled;
+            _isScrolled = scrollTop > 40;
+            if (wasScrolled != _isScrolled) StateHasChanged();
+        }
+        catch { }
+    }
+
+    public ValueTask DisposeAsync()
+    {
+        _dotNetRef?.Dispose();
+        return ValueTask.CompletedTask;
+    }
+}

@@ -1,0 +1,36 @@
+﻿@inherits LayoutComponentBase
+
+<div class="min-h-screen bg-bone text-ink font-sans flex flex-col">
+    @* Dark instrument header *@
+    <header class="bg-plate text-bone">
+        <div class="max-w-6xl mx-auto px-5 h-16 flex items-center gap-6">
+            <a href="/" class="flex items-center gap-2.5 no-underline text-bone">
+                <span class="w-[9px] h-[9px] bg-emerald-500"></span>
+                <span class="font-sora font-bold text-[17px] tracking-[-0.02em]">DeepDrive UI Kit</span>
+            </a>
+            <nav class="ml-auto flex items-center gap-1">
+                <NavItem Href="" Match="NavLinkMatch.All">Home</NavItem>
+                <NavItem Href="widgets">Admin demo</NavItem>
+                <NavItem Href="components">Components</NavItem>
+            </nav>
+        </div>
+    </header>
+
+    <main class="flex-1">
+        @Body
+    </main>
+
+    <footer class="border-t border-ink/10 py-6 text-center">
+        <p class="dd-mono text-[10.5px] font-medium tracking-[0.18em] uppercase text-taupe">
+            DeepDrive UI Kit · MIT Licensed
+        </p>
+    </footer>
+</div>
+
+<ToastContainer />
+
+<div id="blazor-error-ui" data-nosnippet>
+    An unhandled error has occurred.
+    <a href="." class="reload">Reload</a>
+    <span class="dismiss">🗙</span>
+</div>

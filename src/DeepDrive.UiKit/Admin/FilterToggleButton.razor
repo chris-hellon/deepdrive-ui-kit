@@ -1,0 +1,21 @@
+@*
+    The canonical "Filter" toggle button — identical to the golfer app's list-page
+    filter button (Common/AppListPage). Used in every admin header.
+*@
+<button @onclick="OnClick"
+        class="relative h-9 inline-flex items-center gap-2 px-3.5 border transition-colors @(IsActive ? "bg-ink text-white border-ink" : "bg-white text-ink border-ink/15 hover:bg-bone2")">
+    <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <line x1="4" y1="6" x2="20" y2="6"/><line x1="7" y1="12" x2="17" y2="12"/><line x1="10" y1="18" x2="14" y2="18"/>
+    </svg>
+    <span class="ed-micro">Filter</span>
+    @if (ActiveCount > 0)
+    {
+        <span class="ml-0.5 min-w-[18px] h-[18px] px-1 bg-emerald-600 text-white inline-flex items-center justify-center" style="font-size:10px;font-weight:700">@ActiveCount</span>
+    }
+</button>
+
+@code {
+    [Parameter] public bool IsActive { get; set; }
+    [Parameter] public EventCallback OnClick { get; set; }
+    [Parameter] public int ActiveCount { get; set; }
+}

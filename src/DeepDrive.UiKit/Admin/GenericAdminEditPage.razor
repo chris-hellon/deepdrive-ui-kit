@@ -1,0 +1,331 @@
+@using Microsoft.Extensions.DependencyInjection
+
+@typeparam TModel where TModel : class, new()
+@typeparam TDto where TDto : class
+@typeparam TQuery where TQuery : class, IRequest<TDto>, new()
+@typeparam TUpdateCommand where TUpdateCommand : class, IRequest<TResult>, new()
+@typeparam TResult
+
+<AdminPage Title="@Title"
+           Subtitle="@Subtitle"
+           BackUrl="@CancelUrl"
+           Error="@_error"
+           CancelUrl="@CancelUrl"
+           OnSave="TriggerFormSubmit"
+           SaveText="@SaveText"
+           SavingText="@SavingText"
+           IsSaving="_saving"
+           Loading="_loading"
+           ShowContentPadding="@ShowContentPadding"
+           ShowDefaultFooter="@ShowDefaultFooter"
+           OnDelete="OnDelete"
+           IsDeleting="IsDeleting">
+
+    <LoadingSkeleton>
+        @if (LoadingSkeleton is not null)
+        {
+            @LoadingSkeleton
+        }
+    </LoadingSkeleton>
+
+    <SubNavigation>
+        @if (_model is not null && SubNavigation is not null)
+        {
+            @SubNavigation(_model)
+        }
+    </SubNavigation>
+
+    <ChildContent>
+        @if (_model is not null)
+        {
+            <EditForm @ref="_form" Model="@_model" OnValidSubmit="HandleSave">
+                <FluentValidationValidator />
+                @if (ShowValidationSummary)
+                {
+                    <ValidationSummary class="bg-red-50 border border-red-200 text-red-700 p-4 text-sm mb-4" />
+                }
+                @if (FormContent is not null)
+                {
+                    @FormContent(_model)
+                }
+            </EditForm>
+        }
+    </ChildContent>
+
+    <Footer>
+        @if (_model is not null && Footer is not null)
+        {
+            @Footer(new FormContext<TModel>(_model, _saving, TriggerFormSubmit))
+        }
+        else if (_model is not null && ShowDefaultFooter)
+        {
+            <FormFooter CancelUrl="@CancelUrl"
+                        SaveText="@SaveText"
+                        SavingText="@SavingText"
+                        IsSaving="_saving"
+                        OnSave="TriggerFormSubmit"
+                        OnDelete="OnDelete"
+                        IsDeleting="IsDeleting" />
+        }
+    </Footer>
+</AdminPage>
+
+@code {
+    [Parameter, EditorRequired] public string Title { get; set; } = "Edit";
+    [Parameter] public string? Subtitle { get; set; }
+    [Parameter, EditorRequired] public string CancelUrl { get; set; } = "/admin";
+    [Parameter] public string? SuccessUrl { get; set; }
+    [Parameter] public string SaveText { get; set; } = "Save Changes";
+    [Parameter] public string SavingText { get; set; } = "Saving...";
+    [Parameter] public string SuccessMessage { get; set; } = "Updated successfully.";
+    [Parameter] public string ErrorMessage { get; set; } = "Update failed. Please try again.";
+    [Parameter] public string NotFoundMessage { get; set; } = "Item not found.";
+    [Parameter] public bool ShowContentPadding { get; set; } = true;
+    [Parameter] public bool ShowDefaultFooter { get; set; } = true;
+    [Parameter] public bool ShowValidationSummary { get; set; } = true;
+
+    /// <summary>
+    /// The ID to load. Used to construct the query.
+    /// </summary>
+    [Parameter, EditorRequired] public Guid Id { get; set; }
+
+    /// <summary>
+    /// Function to configure the query with the ID.
+    /// </summary>
+    [Parameter, EditorRequired] public Action<TQuery, Guid>? ConfigureQuery { get; set; }
+
+    /// <summary>
+    /// Function to convert DTO to model for editing.
+    /// </summary>
+    [Parameter, EditorRequired] public Func<TDto, TModel>? FromDto { get; set; }
+
+    /// <summary>
+    /// Function to convert model to update command.
+    /// Required if model doesn't implement IFormModel.
+    /// </summary>
+    [Parameter] public Func<TModel, TUpdateCommand>? GetUpdateCommand { get; set; }
+
+    /// <summary>
+    /// Optional pre-save hook (e.g., sync rich text editors).
+    /// </summary>
+    [Parameter] public Func<TModel, Task>? BeforeSave { get; set; }
+
+    /// <summary>
+    /// Optional post-save hook (e.g., reload data).
+    /// </summary>
+    [Parameter] public Func<TModel, Task>? AfterSave { get; set; }
+
+    /// <summary>
+    /// Optional hook after data is loaded (e.g., ensure default data).
+    /// </summary>
+    [Parameter] public Action<TModel>? OnAfterLoad { get; set; }
+
+    /// <summary>
+    /// Optional check for successful result (default checks for non-default value).
+    /// </summary>
+    [Parameter] public Func<TResult, bool>? IsSuccessResult { get; set; }
+
+    /// <summary>
+    /// Callback when save succeeds. Receives the result. Use for custom navigation.
+    /// </summary>
+    [Parameter] public EventCallback<TResult> OnSuccess { get; set; }
+
+    /// <summary>
+    /// The form content to render. Receives the model as context.
+    /// </summary>
+    [Parameter] public RenderFragment<TModel>? FormContent { get; set; }
+
+    /// <summary>
+    /// Optional sub-navigation content. Receives the model as context.
+    /// </summary>
+    [Parameter] public RenderFragment<TModel>? SubNavigation { get; set; }
+
+    /// <summary>
+    /// Optional custom footer. Receives FormContext with model and saving state.
+    /// If not provided and ShowDefaultFooter is true, uses default FormFooter.
+    /// </summary>
+    [Parameter] public RenderFragment<FormContext<TModel>>? Footer { get; set; }
+
+    /// <summary>
+    /// Optional loading skeleton to show while data loads.
+    /// </summary>
+    [Parameter] public RenderFragment? LoadingSkeleton { get; set; }
+
+    /// <summary>
+    /// Event callback for delete button click.
+    /// </summary>
+    [Parameter] public EventCallback OnDelete { get; set; }
+
+    /// <summary>
+    /// Whether the delete operation is in progress.
+    /// </summary>
+    [Parameter] public bool IsDeleting { get; set; }
+
+    [Inject] private IServiceProvider ServiceProvider { get; set; } = null!;
+
+    private EditForm _form = null!;
+    private TModel? _model;
+    private bool _loading = true;
+    private bool _saving;
+    private string? _error;
+
+    /// <summary>
+    /// Exposes the model for external access (e.g., for refs).
+    /// </summary>
+    public TModel? Model => _model;
+
+    /// <summary>
+    /// Whether save operation is in progress.
+    /// </summary>
+    public bool IsSaving => _saving;
+
+    /// <summary>
+    /// Public method to trigger save from parent.
+    /// </summary>
+    public Task SaveAsync() => TriggerFormSubmit();
+
+    /// <summary>
+    /// Public method to reload data.
+    /// </summary>
+    public Task ReloadAsync() => LoadData();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+    }
+
+    private async Task LoadData()
+    {
+        _loading = true;
+        _error = null;
+
+        try
+        {
+            var query = new TQuery();
+            ConfigureQuery?.Invoke(query, Id);
+
+            var caller = ServiceProvider.GetRequiredService<ICall<TQuery, TDto>>();
+            var dto = await caller.Call(query);
+
+            if (dto is null)
+            {
+                _error = NotFoundMessage;
+                return;
+            }
+
+            if (FromDto is null)
+            {
+                throw new InvalidOperationException("FromDto parameter is required.");
+            }
+
+            _model = FromDto(dto);
+            OnAfterLoad?.Invoke(_model);
+        }
+        catch (Exception ex)
+        {
+            _error = $"An error occurred loading data: {ex.Message}";
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private async Task TriggerFormSubmit()
+    {
+        if (_form?.EditContext is null)
+        {
+            ToastBroker.Error("Form not ready. Please try again.");
+            return;
+        }
+
+        if (_form.EditContext.Validate())
+        {
+            await HandleSave();
+        }
+        else
+        {
+            ToastBroker.Error("Please fix the validation errors above.");
+            await Js.InvokeVoidAsync("window.scrollTo", 0, 0);
+        }
+    }
+
+    private async Task HandleSave()
+    {
+        if (_model is null) return;
+
+        _error = null;
+        _saving = true;
+        StateHasChanged();
+        await Task.Yield();
+
+        try
+        {
+            // Run pre-save hook if provided
+            if (BeforeSave is not null)
+            {
+                await BeforeSave(_model);
+            }
+
+            // Get the command
+            TUpdateCommand command;
+            if (GetUpdateCommand is not null)
+            {
+                command = GetUpdateCommand(_model);
+            }
+            else if (_model is IFormModel<object, TUpdateCommand> formModel)
+            {
+                command = formModel.ToUpdateCommand();
+            }
+            else
+            {
+                throw new InvalidOperationException(
+                    $"Model {typeof(TModel).Name} must implement IFormModel<TCreateCommand, {typeof(TUpdateCommand).Name}> " +
+                    "or provide GetUpdateCommand parameter.");
+            }
+
+            // Call the API
+            var caller = ServiceProvider.GetRequiredService<ICall<TUpdateCommand, TResult>>();
+            var result = await caller.Call(command);
+
+            // Check success
+            var isSuccess = IsSuccessResult is not null
+                ? IsSuccessResult(result)
+                : !EqualityComparer<TResult>.Default.Equals(result, default);
+
+            if (!isSuccess)
+            {
+                _error = ErrorMessage;
+                ToastBroker.Error(_error);
+                return;
+            }
+
+            // Run post-save hook if provided
+            if (AfterSave is not null)
+            {
+                await AfterSave(_model);
+            }
+
+            ToastBroker.Success(SuccessMessage);
+
+            // If custom success handler provided, use it
+            if (OnSuccess.HasDelegate)
+            {
+                await OnSuccess.InvokeAsync(result);
+            }
+            else if (SuccessUrl is not null)
+            {
+                Nav.NavigateTo(SuccessUrl);
+            }
+        }
+        catch (Exception ex)
+        {
+            _error = $"An error occurred: {ex.Message}";
+            ToastBroker.Error(_error);
+        }
+        finally
+        {
+            _saving = false;
+        }
+    }
+}

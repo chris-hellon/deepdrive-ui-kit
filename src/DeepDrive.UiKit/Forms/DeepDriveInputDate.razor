@@ -1,0 +1,278 @@
+@typeparam T
+@using System.Linq.Expressions
+@inject IJSRuntime Js
+@implements IAsyncDisposable
+
+@inherits InputDate<T>
+
+<div>
+    @if (!string.IsNullOrEmpty(Label))
+    {
+        <label for="@_domId" class="block mb-2 text-sm uppercase tracking-wider font-medium text-neutral-900">@Label</label>
+    }
+
+    <input id="@_domId"
+           name="@NameAttributeValue"
+           type="text"
+           class="@Css"
+           style="width: 100% !important; box-sizing: border-box !important;"
+           placeholder="@GetPlaceholder()"
+           readonly
+           disabled="@Disabled"
+           @ref="Element"/>
+
+    @if (For != null)
+    {
+        <CustomValidationMessage For="@For"/>
+    }
+</div>
+
+@code {
+    [Parameter] public Expression<Func<T?>>? For { get; set; }
+    [Parameter] public string? Label { get; set; }
+    [Parameter] public string? Placeholder { get; set; }
+    [Parameter] public InputSize InputSize { get; set; } = InputSize.Medium;
+    [Parameter] public string? Class { get; set; }
+    [Parameter] public bool Disabled { get; set; }
+    [Parameter] public bool HideBorder { get; set; }
+    [Parameter] public bool Rounded { get; set; }
+
+    [Parameter] public EventCallback<ChangeEventArgs> OnInputChanged { get; set; }
+    [Parameter] public string? Min { get; set; }
+    [Parameter] public string? Max { get; set; }
+    [Parameter] public string? MinTime { get; set; }
+    [Parameter] public string? MaxTime { get; set; }
+    [Parameter] public bool Error { get; set; }
+    /// <summary>Time-picker minute step. 5 = snap to 5-min slots (default); 1 = allow any minute.</summary>
+    [Parameter] public int MinuteIncrement { get; set; } = 5;
+
+    private string Id => FieldIdentifier.FieldName;
+    private string _domId = null!;
+    private IJSObjectReference? _jsModule;
+    private DotNetObjectReference<DeepDriveInputDate<T>>? _dotNetRef;
+    private bool _initialized;
+
+    private string Css
+    {
+        get
+        {
+            var classes = "w-full bg-white outline-none cursor-pointer focus:outline-none";
+
+            // Border styling - error state takes priority
+            if (Error)
+            {
+                classes += " border-2 border-red-500";
+            }
+            else if (HideBorder)
+            {
+                classes += " border border-transparent";
+            }
+            else
+            {
+                classes += " border border-gray-200 focus:border-emerald-500 focus:ring-emerald-500";
+            }
+
+            if (Rounded) classes += " rounded-lg";
+
+            classes += InputSize switch
+            {
+                InputSize.Large => " px-4 py-3",
+                InputSize.Small => " px-3 py-2 text-xs",
+                _ => " p-3 text-sm"
+            };
+
+            if (!string.IsNullOrEmpty(CssClass)) classes += " " + CssClass;
+            if (!string.IsNullOrEmpty(Class)) classes += " " + Class;
+
+            return classes;
+        }
+    }
+
+    protected override void OnInitialized()
+    {
+        _domId = $"{Id}-{Guid.NewGuid():N}";
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await InitializeFlatpickrAsync();
+        }
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        // Update Flatpickr if initialized
+        if (_initialized && _jsModule != null)
+        {
+            try
+            {
+                // Update min/max options
+                await _jsModule.InvokeVoidAsync("updateOptions", _domId, new { minDate = Min, maxDate = Max });
+
+                // Sync the current value to Flatpickr (in case parent changed it)
+                var formattedValue = FormatDateValue();
+                if (!string.IsNullOrEmpty(formattedValue))
+                {
+                    await _jsModule.InvokeVoidAsync("setDate", _domId, formattedValue);
+                }
+            }
+            catch
+            {
+                // Ignore
+            }
+        }
+    }
+
+    private async Task InitializeFlatpickrAsync()
+    {
+        try
+        {
+            _jsModule = await Js.InvokeAsync<IJSObjectReference>("import", "./_content/DeepDrive.UiKit/js/flatpickr.js");
+            _dotNetRef = DotNetObjectReference.Create(this);
+
+            var isTimeOnly = Type == InputDateType.Time;
+            var options = new
+            {
+                dateFormat = isTimeOnly ? "H:i" : "Y-m-d",
+                enableTime = isTimeOnly,
+                noCalendar = isTimeOnly,
+                minuteIncrement = MinuteIncrement < 1 ? 1 : MinuteIncrement,
+                minDate = isTimeOnly ? null : Min,
+                maxDate = isTimeOnly ? null : Max,
+                defaultDate = FormatDateValue()
+            };
+
+            await _jsModule.InvokeVoidAsync("init", _domId, _dotNetRef, options);
+            _initialized = true;
+        }
+        catch
+        {
+            // Fallback silently if Flatpickr fails to load
+        }
+    }
+
+    [JSInvokable]
+    public async Task OnFlatpickrChange(string dateStr)
+    {
+        if (string.IsNullOrEmpty(dateStr)) return;
+
+        try
+        {
+            if (Type == InputDateType.Time)
+            {
+                // Parse time string (H:i format)
+                if (TimeOnly.TryParse(dateStr, CultureInfo.InvariantCulture, out var time))
+                {
+                    var snapped = MinuteIncrement > 1 ? SnapToMinutes(time, MinuteIncrement) : time;
+                    if (typeof(T) == typeof(TimeOnly?))
+                    {
+                        CurrentValue = (T)(object)(TimeOnly?)snapped;
+                    }
+                    else if (typeof(T) == typeof(TimeOnly))
+                    {
+                        CurrentValue = (T)(object)snapped;
+                    }
+                    await ValueChanged.InvokeAsync(CurrentValue);
+                }
+            }
+            else
+            {
+                // Parse date string (Y-m-d ISO format)
+                if (DateTime.TryParse(dateStr, CultureInfo.InvariantCulture, DateTimeStyles.None, out var date))
+                {
+                    if (typeof(T) == typeof(DateTime?))
+                    {
+                        CurrentValue = (T)(object)(DateTime?)date;
+                    }
+                    else if (typeof(T) == typeof(DateTime))
+                    {
+                        CurrentValue = (T)(object)date;
+                    }
+                    else if (typeof(T) == typeof(DateOnly?))
+                    {
+                        CurrentValue = (T)(object)(DateOnly?)DateOnly.FromDateTime(date);
+                    }
+                    else if (typeof(T) == typeof(DateOnly))
+                    {
+                        CurrentValue = (T)(object)DateOnly.FromDateTime(date);
+                    }
+                    await ValueChanged.InvokeAsync(CurrentValue);
+                }
+            }
+
+            if (OnInputChanged.HasDelegate)
+            {
+                await OnInputChanged.InvokeAsync(new ChangeEventArgs { Value = dateStr });
+            }
+        }
+        catch
+        {
+            // Ignore parse errors
+        }
+    }
+
+    private string FormatDateValue()
+    {
+        if (CurrentValue is DateTime dt)
+        {
+            return Type switch
+            {
+                InputDateType.DateTimeLocal => dt.ToString("yyyy-MM-ddTHH:mm", CultureInfo.InvariantCulture),
+                InputDateType.Date => dt.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
+                InputDateType.Month => dt.ToString("MM", CultureInfo.InvariantCulture),
+                InputDateType.Time => dt.ToString("HH:mm", CultureInfo.InvariantCulture),
+                _ => string.Empty
+            };
+        }
+
+        if (CurrentValue is TimeOnly time)
+        {
+            return time.ToString("HH:mm", CultureInfo.InvariantCulture);
+        }
+
+        if (CurrentValue is DateOnly date)
+        {
+            return date.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+        }
+
+        return string.Empty;
+    }
+
+    private string GetPlaceholder()
+    {
+        if (!string.IsNullOrEmpty(Placeholder)) return Placeholder;
+        return Type == InputDateType.Time ? "Select time" : "Select date";
+    }
+
+    private static TimeOnly SnapToMinutes(TimeOnly time, int increment)
+    {
+        var totalMinutes = time.Hour * 60 + time.Minute;
+        var snappedTotal = (int)Math.Round(totalMinutes / (double)increment, MidpointRounding.AwayFromZero) * increment;
+        if (snappedTotal >= 24 * 60)
+        {
+            snappedTotal = 24 * 60 - increment;
+        }
+        var snappedHour = snappedTotal / 60;
+        var snappedMinute = snappedTotal % 60;
+        return new TimeOnly(snappedHour, snappedMinute);
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (_jsModule != null)
+        {
+            try
+            {
+                await _jsModule.InvokeVoidAsync("destroy", _domId);
+                await _jsModule.DisposeAsync();
+            }
+            catch
+            {
+                // Ignore disposal errors
+            }
+        }
+        _dotNetRef?.Dispose();
+    }
+}

@@ -1,0 +1,40 @@
+@namespace DeepDrive.UiKit.Admin
+@* Sortable table header cell *@
+
+<th class="px-4 py-3 @(Align == TableAlign.Right ? "text-right" : Align == TableAlign.Center ? "text-center" : "text-left")">
+    @if (Sortable)
+    {
+        <button @onclick="OnClick" class="flex items-center gap-1 ed-micro text-taupe hover:text-ink @(Align == TableAlign.Right ? "ml-auto" : "")">
+            @Title
+            @if (IsCurrentSort)
+            {
+                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="@(SortDescending ? "" : "rotate-180")"><path d="m6 9 6 6 6-6"/></svg>
+            }
+        </button>
+    }
+    else
+    {
+        <span class="ed-micro text-taupe @(Align == TableAlign.Right ? "block" : "")">@Title</span>
+    }
+</th>
+
+@code {
+    [Parameter, EditorRequired] public string Title { get; set; } = string.Empty;
+    [Parameter] public bool Sortable { get; set; }
+    [Parameter] public string? SortKey { get; set; }
+    [Parameter] public string? CurrentSortKey { get; set; }
+    [Parameter] public bool SortDescending { get; set; }
+    [Parameter] public EventCallback<string> OnSort { get; set; }
+    [Parameter] public TableAlign Align { get; set; } = TableAlign.Left;
+
+    private bool IsCurrentSort => Sortable && !string.IsNullOrEmpty(SortKey) && SortKey == CurrentSortKey;
+
+    private async Task OnClick()
+    {
+        if (Sortable && OnSort.HasDelegate && !string.IsNullOrEmpty(SortKey))
+        {
+            await OnSort.InvokeAsync(SortKey);
+        }
+    }
+
+}

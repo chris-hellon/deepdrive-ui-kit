@@ -1,0 +1,35 @@
+@*
+    DEPRECATED: This component is not currently used.
+    For new forms, use DeepDriveInputText, DeepDriveInputTextarea, or DeepDriveInputSelect directly.
+    DeepDriveInputSelect requires Items, GetDisplay, GetValue parameters - not ChildContent.
+*@
+<div class="@Class">
+    @if (Type == "textarea")
+    {
+        <DeepDriveInputTextarea @bind-Value="Value"
+                                Label="@(Label + (Required ? " *" : ""))"
+                                Placeholder="@Placeholder"
+                                Rows="@Rows"
+                                BackgroundClass="bg-white"
+                                InputSize="InputSize.Medium" />
+    }
+    else
+    {
+        <DeepDriveInputText @bind-Value="Value"
+                            Label="@(Label + (Required ? " *" : ""))"
+                            Placeholder="@Placeholder"
+                            BackgroundClass="bg-neutral-50"
+                            InputSize="InputSize.Medium" />
+    }
+</div>
+
+@code {
+    [Parameter, EditorRequired] public string Label { get; set; } = string.Empty;
+    [Parameter] public string Type { get; set; } = "text";
+    [Parameter] public string? Value { get; set; }
+    [Parameter] public EventCallback<string?> ValueChanged { get; set; }
+    [Parameter] public string? Placeholder { get; set; }
+    [Parameter] public bool Required { get; set; }
+    [Parameter] public string? Class { get; set; }
+    [Parameter] public int Rows { get; set; } = 3;
+}

@@ -1,0 +1,56 @@
+@page "/widgets/{Id:guid}"
+@using DeepDrive.UiKit.Demo.Components.Pages.Widgets.Shared
+@inject ICall<DeleteWidgetCommand, bool> DeleteWidget
+
+<PageTitle>Edit Widget — DeepDrive UI Kit</PageTitle>
+
+<GenericAdminEditPage TModel="WidgetFormModel"
+                      TDto="WidgetDto"
+                      TQuery="GetWidgetByIdQuery"
+                      TUpdateCommand="UpdateWidgetCommand"
+                      TResult="bool"
+                      Id="Id"
+                      Title="Edit Widget"
+                      CancelUrl="/widgets"
+                      SuccessUrl="/widgets"
+                      ConfigureQuery="(q, id) => q.Id = id"
+                      FromDto="WidgetFormModel.FromDto"
+                      BeforeSave="BeforeSaveAsync">
+    <FormContent Context="model">
+        <WidgetForm Model="model" IsEditMode="true" />
+
+        <FormDangerZone Title="Delete Widget"
+                        Description="Permanently remove this widget. This cannot be undone."
+                        ButtonText="Delete Widget"
+                        ConfirmTitle="Delete Widget"
+                        ConfirmMessage="Are you sure you want to delete this widget?"
+                        ConfirmButtonText="Delete"
+                        OnConfirm="OnConfirmDelete" />
+    </FormContent>
+</GenericAdminEditPage>
+
+@code {
+    [Parameter] public Guid Id { get; set; }
+
+    private Task BeforeSaveAsync(WidgetFormModel model)
+    {
+        model.Id = Id;
+        return Task.CompletedTask;
+    }
+
+    private async Task<(bool Success, string? ErrorMessage)> OnConfirmDelete()
+    {
+        try
+        {
+            var ok = await DeleteWidget.Call(new DeleteWidgetCommand { Id = Id });
+            if (!ok) return (false, "Failed to delete.");
+            ToastBroker.Success("Widget deleted.");
+            Nav.NavigateTo("/widgets");
+            return (true, null);
+        }
+        catch
+        {
+            return (false, "Failed to delete.");
+        }
+    }
+}

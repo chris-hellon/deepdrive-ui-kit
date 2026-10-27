@@ -1,0 +1,386 @@
+@using Microsoft.Extensions.DependencyInjection
+@typeparam TItem where TItem : class, INamedEntity
+@typeparam TResult where TResult : class, ISearchResult<TItem>
+@typeparam TSearchQuery where TSearchQuery : class, ISearchQuery, IRequest<TResult>, new()
+@typeparam TDeleteCommand where TDeleteCommand : class, IDeleteByIdCommand, IRequest<bool>, new()
+
+@inject IServiceProvider ServiceProvider
+
+<AdminPage Title="@Title"
+           ShowDefaultFooter="false"
+           ShowContentPadding="false"
+           ShowBackButton="@ShowBackButton"
+           BackUrl="@BackUrl"
+           Error="@_error"
+           ShowFilters="true"
+           @bind-FilterVisible="_filterVisible"
+           @bind-SearchValue="_search"
+           SearchPlaceholder="@SearchPlaceholder"
+           OnSearch="OnSearchChanged"
+           HasActiveFilters="ComputedHasActiveFilters"
+           OnClearFilters="HandleClearFilters">
+
+    <SubNavigation>
+        @SubNavigation
+    </SubNavigation>
+
+    <HeaderActions>
+        @HeaderActions
+        @if (!string.IsNullOrEmpty(CreateUrl))
+        {
+            <AdminCreateButton Href="@CreateUrl" Text="Create" />
+        }
+    </HeaderActions>
+
+    <FilterContent>
+        @if (SupportsActiveFilter && _activeFilterableQuery)
+        {
+            <span class="ed-micro text-taupe">Status:</span>
+            <FilterChip Label="All" IsActive="@(_statusFilter == null)" OnClick="@(() => SetStatusFilter(null))" />
+            <FilterChip Label="Active" IsActive="@(_statusFilter == true)" OnClick="@(() => SetStatusFilter(true))" />
+            <FilterChip Label="Inactive" IsActive="@(_statusFilter == false)" OnClick="@(() => SetStatusFilter(false))" />
+        }
+        @FilterContent
+    </FilterContent>
+
+    <ChildContent>
+        @if (BeforeContent is not null)
+        {
+            <div class="mb-4">
+                @BeforeContent
+            </div>
+        }
+        <AdminTable TItem="TItem"
+                    Items="@_result?.Items"
+                    Loading="@_loading"
+                    SkeletonColumns="@SkeletonColumns"
+                    SkeletonRows="@SkeletonRows"
+                    EmptyTitle="@EmptyTitle"
+                    EmptySubtitle="@EmptySubtitle"
+                    CardTemplate="@CardTemplate"
+                    Page="_page"
+                    PageSize="PageSize"
+                    TotalCount="@(_result?.TotalCount ?? 0)"
+                    PreviousPage="OnPreviousPage"
+                    NextPage="OnNextPage">
+            <EmptyIcon>
+                @if (EmptyIcon is not null)
+                {
+                    @EmptyIcon
+                }
+            </EmptyIcon>
+            <EmptyAction>
+                @if (!string.IsNullOrEmpty(CreateUrl))
+                {
+                    <AdminCreateButton Href="@CreateUrl" Text="@($"Create {EntityName}")" />
+                }
+            </EmptyAction>
+            <HeaderContent>
+                @TableHeaderContent
+            </HeaderContent>
+            <RowContent Context="item">
+                @RowTemplate(item)
+            </RowContent>
+        </AdminTable>
+    </ChildContent>
+</AdminPage>
+
+<AdminListConfirmDialogs EntityName="@EntityName"
+                         SelectedItemName="@_selectedItem?.Name"
+                         Busy="_confirmBusy"
+                         Error="@_confirmError"
+                         ShowDeleteDialog="@SupportsDelete"
+                         ShowDeleteConfirm="_showDeleteConfirm"
+                         ShowDeleteConfirmChanged="@(v => _showDeleteConfirm = v)"
+                         DeleteTitleOverride="@DeleteConfirmTitle"
+                         DeleteMessageOverride="@DeleteConfirmMessage"
+                         OnConfirmDelete="OnConfirmDelete"
+                         ShowDeactivateDialog="@SupportsToggleActive"
+                         ShowDeactivateConfirm="_showDeactivateConfirm"
+                         ShowDeactivateConfirmChanged="@(v => _showDeactivateConfirm = v)"
+                         OnConfirmDeactivate="OnConfirmDeactivate"
+                         ShowActivateDialog="@SupportsToggleActive"
+                         ShowActivateConfirm="_showActivateConfirm"
+                         ShowActivateConfirmChanged="@(v => _showActivateConfirm = v)"
+                         OnConfirmActivate="OnConfirmActivate" />
+
+@code {
+    // Page configuration
+    [Parameter, EditorRequired] public string Title { get; set; } = string.Empty;
+    [Parameter, EditorRequired] public string EntityName { get; set; } = "Item";
+    [Parameter] public string? CreateUrl { get; set; }
+    [Parameter] public string? BackUrl { get; set; }
+    [Parameter] public bool ShowBackButton { get; set; }
+
+    /// <summary>Optional override for the delete confirmation dialog title.</summary>
+    [Parameter] public string? DeleteConfirmTitle { get; set; }
+    /// <summary>Optional override for the delete confirmation dialog message (e.g. a stronger warning).</summary>
+    [Parameter] public string? DeleteConfirmMessage { get; set; }
+    [Parameter] public string SearchPlaceholder { get; set; } = "Search...";
+    [Parameter] public int PageSize { get; set; } = 15;
+
+    // Table configuration
+    [Parameter] public int SkeletonColumns { get; set; } = 3;
+    [Parameter] public int SkeletonRows { get; set; } = 8;
+    [Parameter] public string EmptyTitle { get; set; } = "No items found";
+    [Parameter] public string EmptySubtitle { get; set; } = "Create your first item to get started";
+
+    // Feature flags
+    [Parameter] public bool SupportsDelete { get; set; } = true;
+    [Parameter] public bool SupportsToggleActive { get; set; }
+    [Parameter] public bool SupportsActiveFilter { get; set; }
+
+    // Render fragments
+    [Parameter] public RenderFragment? HeaderActions { get; set; }
+    /// <summary>Optional sticky sub-navigation bar rendered under the header (e.g. section tabs).</summary>
+    [Parameter] public RenderFragment? SubNavigation { get; set; }
+    /// <summary>Optional content rendered above the table (e.g. stat cards), inside the scroll area.</summary>
+    [Parameter] public RenderFragment? BeforeContent { get; set; }
+    [Parameter] public RenderFragment? FilterContent { get; set; }
+    [Parameter] public RenderFragment? EmptyIcon { get; set; }
+    [Parameter, EditorRequired] public RenderFragment? TableHeaderContent { get; set; }
+    [Parameter, EditorRequired] public RenderFragment<TItem> RowTemplate { get; set; } = default!;
+
+    /// <summary>Optional mobile card layout (renders on small screens instead of the table).</summary>
+    [Parameter] public RenderFragment<TItem>? CardTemplate { get; set; }
+
+    // Query customization - allows pages to modify the query before execution
+    [Parameter] public Action<TSearchQuery>? ConfigureQuery { get; set; }
+
+    // Custom active filters check
+    [Parameter] public Func<bool>? HasActiveFilters { get; set; }
+
+    // Clear filters callback for page-specific filters
+    [Parameter] public EventCallback OnClearFilters { get; set; }
+
+    // Expose state and methods to parent for custom operations
+    public TResult? Result => _result;
+    public bool Loading => _loading;
+    public TItem? SelectedItem => _selectedItem;
+
+    // ICall services - resolved dynamically
+    private ICall<TSearchQuery, TResult>? _searchService;
+    private ICall<TDeleteCommand, bool>? _deleteService;
+
+    // State
+    private bool _loading = true;
+    private string? _error;
+    private TResult? _result;
+    private string _search = string.Empty;
+    private bool _filterVisible;
+    private int _page = 1;
+    private bool? _statusFilter;
+
+    // Confirm dialog state
+    private bool _showDeleteConfirm;
+    private bool _showDeactivateConfirm;
+    private bool _showActivateConfirm;
+    private bool _confirmBusy;
+    private string? _confirmError;
+    private TItem? _selectedItem;
+
+    // Track if query supports active filtering
+    private bool _activeFilterableQuery;
+
+    private bool ComputedHasActiveFilters =>
+        HasActiveFilters?.Invoke() ?? (!string.IsNullOrEmpty(_search) || _statusFilter is not null);
+
+    protected override void OnInitialized()
+    {
+        // Resolve services
+        _searchService = ServiceProvider.GetRequiredService<ICall<TSearchQuery, TResult>>();
+        _deleteService = ServiceProvider.GetRequiredService<ICall<TDeleteCommand, bool>>();
+
+        // Check if query supports active filtering
+        _activeFilterableQuery = typeof(IActiveFilterableQuery).IsAssignableFrom(typeof(TSearchQuery));
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        await RefreshAsync();
+    }
+
+    public async Task RefreshAsync()
+    {
+        if (_searchService is null) return;
+
+        _loading = true;
+        _error = null;
+        StateHasChanged();
+
+        try
+        {
+            var query = new TSearchQuery
+            {
+                Q = string.IsNullOrWhiteSpace(_search) ? null : _search,
+                Page = _page,
+                PageSize = PageSize
+            };
+
+            // Apply active filter if supported
+            if (_activeFilterableQuery && query is IActiveFilterableQuery activeQuery)
+            {
+                activeQuery.ActiveOnly = _statusFilter;
+            }
+
+            // Let the page customize the query
+            ConfigureQuery?.Invoke(query);
+
+            _result = await _searchService.Call(query);
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _loading = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task OnSearchChanged()
+    {
+        _page = 1;
+        await RefreshAsync();
+    }
+
+    private async Task SetStatusFilter(bool? value)
+    {
+        _statusFilter = value;
+        _page = 1;
+        await RefreshAsync();
+    }
+
+    private async Task HandleClearFilters()
+    {
+        _search = string.Empty;
+        _statusFilter = null;
+        _page = 1;
+        await OnClearFilters.InvokeAsync();
+        await RefreshAsync();
+    }
+
+    private async Task OnPreviousPage()
+    {
+        if (_page > 1)
+        {
+            _page--;
+            await RefreshAsync();
+        }
+    }
+
+    private async Task OnNextPage()
+    {
+        if (_result is not null && _page < _result.TotalPages)
+        {
+            _page++;
+            await RefreshAsync();
+        }
+    }
+
+    // Public methods for row actions
+    public void PromptDelete(TItem item)
+    {
+        _selectedItem = item;
+        _confirmError = null;
+        _showDeleteConfirm = true;
+        StateHasChanged();
+    }
+
+    public void PromptDeactivate(TItem item)
+    {
+        _selectedItem = item;
+        _confirmError = null;
+        _showDeactivateConfirm = true;
+        StateHasChanged();
+    }
+
+    public void PromptActivate(TItem item)
+    {
+        _selectedItem = item;
+        _confirmError = null;
+        _showActivateConfirm = true;
+        StateHasChanged();
+    }
+
+    private async Task OnConfirmDelete()
+    {
+        if (_selectedItem is null || _deleteService is null) return;
+        _confirmBusy = true;
+        _confirmError = null;
+
+        try
+        {
+            var command = new TDeleteCommand { Id = _selectedItem.Id };
+            await _deleteService.Call(command);
+            _showDeleteConfirm = false;
+            _selectedItem = null;
+            ToastBroker.Success($"{EntityName} deleted.");
+            await RefreshAsync();
+        }
+        catch
+        {
+            _confirmError = $"Failed to delete {EntityName.ToLower()}.";
+        }
+        finally
+        {
+            _confirmBusy = false;
+        }
+    }
+
+    private async Task OnConfirmDeactivate()
+    {
+        if (_selectedItem is null) return;
+        await ToggleActiveInternal(false);
+    }
+
+    private async Task OnConfirmActivate()
+    {
+        if (_selectedItem is null) return;
+        await ToggleActiveInternal(true);
+    }
+
+    private async Task ToggleActiveInternal(bool isActive)
+    {
+        _confirmBusy = true;
+        _confirmError = null;
+
+        try
+        {
+            // Delegate to parent for toggle - we need type parameter for toggle command
+            if (ToggleActiveCallback.HasDelegate && _selectedItem is not null)
+            {
+                await ToggleActiveCallback.InvokeAsync((_selectedItem.Id, isActive));
+            }
+
+            if (isActive)
+            {
+                _showActivateConfirm = false;
+                ToastBroker.Success($"{EntityName} activated.");
+            }
+            else
+            {
+                _showDeactivateConfirm = false;
+                ToastBroker.Success($"{EntityName} deactivated.");
+            }
+            _selectedItem = null;
+            await RefreshAsync();
+        }
+        catch
+        {
+            _confirmError = isActive
+                ? $"Failed to activate {EntityName.ToLower()}."
+                : $"Failed to deactivate {EntityName.ToLower()}.";
+        }
+        finally
+        {
+            _confirmBusy = false;
+        }
+    }
+
+    /// <summary>
+    /// Callback for toggle active - parent provides the implementation since toggle command type varies.
+    /// </summary>
+    [Parameter] public EventCallback<(Guid Id, bool IsActive)> ToggleActiveCallback { get; set; }
+}

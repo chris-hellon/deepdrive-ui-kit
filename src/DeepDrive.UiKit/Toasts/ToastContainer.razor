@@ -1,0 +1,115 @@
+@implements IDisposable
+@inject NavigationManager Nav
+
+@code {
+    private readonly List<ToastBroker.ToastMessage> _items = [];
+    private bool _subscribed;
+    private bool _disposed;
+
+    protected override void OnInitialized()
+    {
+        if (_subscribed) return;
+
+        ToastBroker.OnToast += HandleToast;
+        _subscribed = true;
+    }
+
+    private async void HandleToast(ToastBroker.ToastMessage toast)
+    {
+        if (_disposed) return;
+
+        try
+        {
+            _items.Add(toast);
+            if (!_disposed) await InvokeAsync(StateHasChanged);
+            _ = AutoRemoveAsync(toast.Id, toast.ExpiresAt);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[ToastContainer] HandleToast error: {ex.Message}");
+        }
+    }
+
+    private async Task AutoRemoveAsync(Guid id, DateTime expiresAt)
+    {
+        if (_disposed) return;
+
+        try
+        {
+            var delay = expiresAt - DateTime.UtcNow;
+            if (delay < TimeSpan.Zero) delay = TimeSpan.Zero;
+            await Task.Delay(delay);
+
+            if (_disposed) return;
+            var removed = _items.RemoveAll(t => t.Id == id);
+            if (removed > 0 && !_disposed)
+                await InvokeAsync(StateHasChanged);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[ToastContainer] AutoRemoveAsync error: {ex.Message}");
+        }
+    }
+
+    private void HandleToastClick(ToastBroker.ToastMessage toast)
+    {
+        // Remove the toast immediately when clicked
+        _items.RemoveAll(t => t.Id == toast.Id);
+
+        // Navigate if URL is provided
+        if (!string.IsNullOrEmpty(toast.Url))
+        {
+            Nav.NavigateTo(toast.Url);
+        }
+    }
+
+    private string GetTitle(ToastBroker.ToastMessage t)
+    {
+        if (!string.IsNullOrEmpty(t.Title)) return t.Title;
+        return t.Success ? "Success" : "Error";
+    }
+
+    public void Dispose()
+    {
+        _disposed = true;
+
+        if (!_subscribed) return;
+
+        ToastBroker.OnToast -= HandleToast;
+        _subscribed = false;
+    }
+}
+
+@if (_items.Count > 0)
+{
+    <div class="fixed top-4 right-4 flex flex-col gap-3 w-[90%] max-w-sm pointer-events-none" style="z-index: 2147483647;" aria-live="polite" aria-atomic="true">
+        @foreach (var t in _items)
+        {
+            <div @onclick="() => HandleToastClick(t)"
+                 class="@(t.Success ? "border-l-4 border-l-emerald-500 border-emerald-200" : "border-l-4 border-l-red-500 border-red-200") bg-white border text-neutral-900 text-sm px-4 py-4 rounded-lg shadow-2xl pointer-events-auto animate-slide-in flex items-start gap-3 @(!string.IsNullOrEmpty(t.Url) ? "cursor-pointer hover:bg-neutral-50 transition-colors" : "")">
+                @if (t.Success)
+                {
+                    <div class="w-6 h-6 rounded-full bg-emerald-100 flex items-center justify-center flex-shrink-0">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" class="text-emerald-600">
+                            <path d="M20 6 9 17l-5-5"/>
+                        </svg>
+                    </div>
+                }
+                else
+                {
+                    <div class="w-6 h-6 rounded-full bg-red-100 flex items-center justify-center flex-shrink-0">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" class="text-red-600">
+                            <circle cx="12" cy="12" r="10"/>
+                            <line x1="12" y1="8" x2="12" y2="12"/>
+                            <line x1="12" y1="16" x2="12.01" y2="16"/>
+                        </svg>
+                    </div>
+                }
+                <div class="flex-1 min-w-0">
+                    <p class="font-semibold text-sm @(t.Success ? "text-emerald-900" : "text-red-900")">@GetTitle(t)</p>
+                    <p class="text-neutral-600 text-sm mt-0.5">@t.Message</p>
+                </div>
+            </div>
+        }
+    </div>
+}

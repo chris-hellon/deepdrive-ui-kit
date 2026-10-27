@@ -1,0 +1,223 @@
+@using Microsoft.Extensions.DependencyInjection
+
+@typeparam TModel where TModel : class, new()
+@typeparam TCreateCommand where TCreateCommand : class, IRequest<TResult>, new()
+@typeparam TResult
+
+<AdminPage Title="@Title"
+           Subtitle="@Subtitle"
+           BackUrl="@CancelUrl"
+           Error="@_error"
+           CancelUrl="@CancelUrl"
+           OnSave="TriggerFormSubmit"
+           SaveText="@SaveText"
+           SavingText="@SavingText"
+           IsSaving="_saving"
+           ShowContentPadding="@ShowContentPadding"
+           ShowDefaultFooter="@ShowDefaultFooter">
+
+    <SubNavigation>
+        @if (SubNavigation is not null)
+        {
+            @SubNavigation(_model)
+        }
+    </SubNavigation>
+
+    <ChildContent>
+        <EditForm @ref="_form" Model="@_model" OnValidSubmit="HandleSave">
+            <FluentValidationValidator />
+            @if (ShowValidationSummary)
+            {
+                <ValidationSummary class="bg-red-50 border border-red-200 text-red-700 p-4 text-sm mb-4" />
+            }
+            @if (FormContent is not null)
+            {
+                @FormContent(_model)
+            }
+        </EditForm>
+    </ChildContent>
+
+    <Footer>
+        @if (Footer is not null)
+        {
+            @Footer(new FormContext<TModel>(_model, _saving, TriggerFormSubmit))
+        }
+        else if (ShowDefaultFooter)
+        {
+            <FormFooter CancelUrl="@CancelUrl"
+                        SaveText="@SaveText"
+                        SavingText="@SavingText"
+                        IsSaving="_saving"
+                        OnSave="TriggerFormSubmit" />
+        }
+    </Footer>
+</AdminPage>
+
+@code {
+    [Parameter, EditorRequired] public string Title { get; set; } = "Create";
+    [Parameter] public string? Subtitle { get; set; }
+    [Parameter, EditorRequired] public string CancelUrl { get; set; } = "/admin";
+    [Parameter] public string? SuccessUrl { get; set; }
+    [Parameter] public string SaveText { get; set; } = "Create";
+    [Parameter] public string SavingText { get; set; } = "Creating...";
+    [Parameter] public string SuccessMessage { get; set; } = "Created successfully.";
+    [Parameter] public string ErrorMessage { get; set; } = "Create failed. Please try again.";
+    [Parameter] public bool ShowContentPadding { get; set; } = true;
+    [Parameter] public bool ShowDefaultFooter { get; set; } = true;
+    [Parameter] public bool ShowValidationSummary { get; set; } = true;
+
+    /// <summary>
+    /// Factory function to create a new model instance.
+    /// If not provided, uses parameterless constructor.
+    /// </summary>
+    [Parameter] public Func<TModel>? CreateModel { get; set; }
+
+    /// <summary>
+    /// Function to convert model to create command.
+    /// Required if model doesn't implement IFormModel.
+    /// </summary>
+    [Parameter] public Func<TModel, TCreateCommand>? GetCreateCommand { get; set; }
+
+    /// <summary>
+    /// Optional pre-save hook (e.g., sync rich text editors).
+    /// </summary>
+    [Parameter] public Func<TModel, Task>? BeforeSave { get; set; }
+
+    /// <summary>
+    /// Optional check for successful result (default checks for non-default value).
+    /// </summary>
+    [Parameter] public Func<TResult, bool>? IsSuccessResult { get; set; }
+
+    /// <summary>
+    /// Callback when save succeeds. Receives the result. Use for custom navigation.
+    /// </summary>
+    [Parameter] public EventCallback<TResult> OnSuccess { get; set; }
+
+    /// <summary>
+    /// The form content to render. Receives the model as context.
+    /// </summary>
+    [Parameter] public RenderFragment<TModel>? FormContent { get; set; }
+
+    /// <summary>
+    /// Optional sub-navigation content. Receives the model as context.
+    /// </summary>
+    [Parameter] public RenderFragment<TModel>? SubNavigation { get; set; }
+
+    /// <summary>
+    /// Optional custom footer. Receives FormContext with model and saving state.
+    /// If not provided and ShowDefaultFooter is true, uses default FormFooter.
+    /// </summary>
+    [Parameter] public RenderFragment<FormContext<TModel>>? Footer { get; set; }
+
+    [Inject] private IServiceProvider ServiceProvider { get; set; } = null!;
+
+    private EditForm _form = null!;
+    private TModel _model = null!;
+    private bool _saving;
+    private string? _error;
+
+    /// <summary>
+    /// Exposes the model for external access.
+    /// </summary>
+    public TModel Model => _model;
+
+    /// <summary>
+    /// Whether save operation is in progress.
+    /// </summary>
+    public bool IsSaving => _saving;
+
+    protected override void OnInitialized()
+    {
+        _model = CreateModel is not null ? CreateModel() : new TModel();
+    }
+
+    private async Task TriggerFormSubmit()
+    {
+        if (_form?.EditContext is null)
+        {
+            ToastBroker.Error("Form not ready. Please try again.");
+            return;
+        }
+
+        if (_form.EditContext.Validate())
+        {
+            await HandleSave();
+        }
+        else
+        {
+            ToastBroker.Error("Please fix the validation errors above.");
+            await Js.InvokeVoidAsync("window.scrollTo", 0, 0);
+        }
+    }
+
+    private async Task HandleSave()
+    {
+        _error = null;
+        _saving = true;
+        StateHasChanged();
+        await Task.Yield();
+
+        try
+        {
+            // Run pre-save hook if provided
+            if (BeforeSave is not null)
+            {
+                await BeforeSave(_model);
+            }
+
+            // Get the command
+            TCreateCommand command;
+            if (GetCreateCommand is not null)
+            {
+                command = GetCreateCommand(_model);
+            }
+            else if (_model is IFormModel<TCreateCommand, object> formModel)
+            {
+                command = formModel.ToCreateCommand();
+            }
+            else
+            {
+                throw new InvalidOperationException(
+                    $"Model {typeof(TModel).Name} must implement IFormModel<{typeof(TCreateCommand).Name}, TUpdateCommand> " +
+                    "or provide GetCreateCommand parameter.");
+            }
+
+            // Call the API
+            var caller = ServiceProvider.GetRequiredService<ICall<TCreateCommand, TResult>>();
+            var result = await caller.Call(command);
+
+            // Check success
+            var isSuccess = IsSuccessResult is not null
+                ? IsSuccessResult(result)
+                : !EqualityComparer<TResult>.Default.Equals(result, default);
+
+            if (!isSuccess)
+            {
+                _error = ErrorMessage;
+                ToastBroker.Error(_error);
+                return;
+            }
+
+            ToastBroker.Success(SuccessMessage);
+
+            // If custom success handler provided, use it
+            if (OnSuccess.HasDelegate)
+            {
+                await OnSuccess.InvokeAsync(result);
+            }
+            else
+            {
+                Nav.NavigateTo(SuccessUrl ?? CancelUrl);
+            }
+        }
+        catch (Exception ex)
+        {
+            _error = $"An error occurred: {ex.Message}";
+            ToastBroker.Error(_error);
+        }
+        finally
+        {
+            _saving = false;
+        }
+    }
+}

@@ -1,0 +1,75 @@
+@using System.Linq.Expressions
+@inherits InputTextArea
+
+<div>
+    @if (!string.IsNullOrEmpty(Label))
+    {
+        <label for="@_domId" class="block mb-2 uppercase tracking-wider text-sm font-medium text-neutral-900">@Label</label>
+    }
+
+    <textarea id="@_domId"
+              name="@NameAttributeValue"
+              rows="@Rows"
+              class="@Css"
+              placeholder="@Placeholder"
+              value="@CurrentValue"
+              disabled="@Disabled"
+              @onchange="HandleChange"
+              @attributes="AdditionalAttributes"
+              @ref="Element"></textarea>
+
+    @if (For is not null)
+    {
+        <CustomValidationMessage For="@For"/>
+    }
+</div>
+
+@code {
+    [Parameter] public Expression<Func<string?>>? For { get; set; }
+    [Parameter] public string? Label { get; set; }
+    [Parameter] public string? Placeholder { get; set; }
+    [Parameter] public InputTextType InputType { get; set; } = InputTextType.Text;
+    [Parameter] public InputSize InputSize { get; set; } = InputSize.Medium;
+    [Parameter] public string? Class { get; set; }
+    [Parameter] public int Rows { get; set; } = 4;
+    [Parameter] public bool Disabled { get; set; }
+    [Parameter] public bool HideBorder { get; set; }
+    [Parameter] public bool Rounded { get; set; }
+    [Parameter] public string? BackgroundClass { get; set; }
+    [Parameter] public EventCallback<ChangeEventArgs> OnInputChanged { get; set; }
+
+    private string Id => FieldIdentifier.FieldName;
+    private string _domId = null!;
+
+    protected override void OnInitialized()
+    {
+        _domId = $"{Id}-{Guid.NewGuid():N}";
+
+        if (ValueExpression == null)
+        {
+            FieldIdentifier = new FieldIdentifier(new object(), Guid.NewGuid().ToString());
+        }
+
+        base.OnInitialized();
+    }
+
+    private string Css => new CssBuilder()
+        .Add($"w-full {BackgroundClass ?? "bg-white"} outline-none [&.invalid]:border-red-500 [&.invalid]:ring-red-500 focus:outline-none focus:border-emerald-500 focus:ring-emerald-500 resize-none")
+        .AddIf(() => "border border-transparent", HideBorder)
+        .AddIf(() => "border border-gray-200", !HideBorder)
+        .AddIf(() => "rounded-lg", Rounded)
+        .AddIf(() => "px-4 py-3", InputSize == InputSize.Large)
+        .AddIf(() => "p-3 text-sm", InputSize == InputSize.Medium)
+        .AddIf(() => "px-3 py-2 text-xs", InputSize == InputSize.Small)
+        .Add(CssClass)
+        .Add(Class)
+        .ToString();
+    
+    private async Task HandleChange(ChangeEventArgs e)
+    {
+        CurrentValue = e.Value?.ToString();
+
+        if (OnInputChanged.HasDelegate)
+            await OnInputChanged.InvokeAsync(e);
+    }
+}

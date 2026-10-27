@@ -1,0 +1,99 @@
+@namespace DeepDrive.UiKit.Forms
+
+@*
+    Shared button / link primitive used across the Website and the apps (Web / Web.Client / App).
+
+    Renders an <a> when Href is set, otherwise a <button>. Variant + Size map to the
+    .btn-* component classes defined in Core/Shared/tailwind.buttons.js (shared by both
+    the Website and the shared Tailwind builds). Set Arrow to append the standard trailing
+    arrow icon (AnimateArrow makes it slide on hover). Put leading/other icons inside ChildContent.
+
+    NOTE: Tailwind purges classes it can't see as literal strings. The variant/size
+    switches below MUST return complete literal class names (never build them by
+    concatenating fragments) so the scanner keeps the compiled CSS.
+*@
+
+@if (!string.IsNullOrEmpty(Href))
+{
+    @* OnClick is wired here too so a link can run a handler (e.g. close a menu)
+       while still navigating. An unset EventCallback attaches no handler. *@
+    <a href="@Href" class="@CssClass" @onclick="OnClick" @attributes="Attributes">
+        @ChildContent
+        @if (Arrow)
+        {
+            @ArrowIcon
+        }
+    </a>
+}
+else
+{
+    <button type="@Type" class="@CssClass" @onclick="OnClick" @attributes="Attributes">
+        @ChildContent
+        @if (Arrow)
+        {
+            @ArrowIcon
+        }
+    </button>
+}
+
+@code {
+    public enum ButtonVariant { Primary, Dark, Ghost, Outline, OutlineDark, Link }
+    public enum ButtonSize { None, Sm, Md, Lg }
+
+    [Parameter] public string? Href { get; set; }
+    [Parameter] public ButtonVariant Variant { get; set; } = ButtonVariant.Primary;
+    [Parameter] public ButtonSize Size { get; set; } = ButtonSize.Md;
+    [Parameter] public bool Arrow { get; set; }
+    /// <summary>When true the trailing arrow slides right on hover (needs Arrow).</summary>
+    [Parameter] public bool AnimateArrow { get; set; }
+    [Parameter] public EventCallback OnClick { get; set; }
+    [Parameter] public string Type { get; set; } = "button";
+    [Parameter] public string? Class { get; set; }
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+    [Parameter(CaptureUnmatchedValues = true)] public Dictionary<string, object>? Attributes { get; set; }
+
+    // Link variant ignores Size (it has no padding); every other variant gets a size class.
+    private string SizeClass => Size switch
+    {
+        ButtonSize.Sm => "btn-sm",
+        ButtonSize.Md => "btn-md",
+        ButtonSize.Lg => "btn-lg",
+        _ => ""
+    };
+
+    private string CssClass
+    {
+        get
+        {
+            var core = Variant switch
+            {
+                ButtonVariant.Primary => $"btn btn-primary btn-premium {SizeClass}",
+                ButtonVariant.Dark => $"btn btn-dark btn-premium {SizeClass}",
+                ButtonVariant.Ghost => $"btn btn-ghost {SizeClass}",
+                ButtonVariant.Outline => $"btn btn-outline {SizeClass}",
+                ButtonVariant.OutlineDark => $"btn btn-outline-dark {SizeClass}",
+                ButtonVariant.Link => "btn-link link-underline",
+                _ => "btn"
+            };
+
+            if (AnimateArrow)
+                core = $"group {core}";
+
+            return string.IsNullOrWhiteSpace(Class) ? core.Trim() : $"{core.Trim()} {Class}";
+        }
+    }
+
+    private int ArrowSize => Size switch
+    {
+        ButtonSize.Lg => 18,
+        ButtonSize.Sm => 14,
+        _ => 16
+    };
+
+    private RenderFragment ArrowIcon => builder =>
+    {
+        var cls = AnimateArrow ? " class=\"transition-transform group-hover:translate-x-1\"" : "";
+        builder.AddMarkupContent(0,
+            $"<svg xmlns=\"http://www.w3.org/2000/svg\"{cls} width=\"{ArrowSize}\" height=\"{ArrowSize}\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"><path d=\"M5 12h14\"/><path d=\"m12 5 7 7-7 7\"/></svg>");
+    };
+}

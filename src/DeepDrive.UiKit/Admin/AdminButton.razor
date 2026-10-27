@@ -1,0 +1,52 @@
+@if (!string.IsNullOrWhiteSpace(Href))
+{
+    <a href="@Href" target="@Target" class="@GetClasses()">@GetContent()</a>
+}
+else
+{
+    <button type="@HtmlButtonType" disabled="@Disabled" @onclick="OnClick" class="@GetClasses()">
+        @GetContent()
+    </button>
+}
+
+@code {
+    [Parameter] public ButtonType Type { get; set; } = ButtonType.Secondary;
+    [Parameter] public ButtonSize Size { get; set; } = ButtonSize.Medium;
+    [Parameter] public bool Disabled { get; set; }
+    [Parameter] public string? Href { get; set; }
+    [Parameter] public string? Target { get; set; }
+    [Parameter] public string HtmlButtonType { get; set; } = "button";
+    [Parameter] public EventCallback OnClick { get; set; }
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+    [Parameter] public string? Text { get; set; }
+    [Parameter] public string? Class { get; set; }
+    [Parameter] public bool FullWidth { get; set; }
+
+    private RenderFragment GetContent() => ChildContent ?? (builder => builder.AddContent(0, Text ?? string.Empty));
+
+    private string GetClasses()
+    {
+        var baseClasses = Size switch
+        {
+            ButtonSize.Small => "px-3 py-1.5 text-[10px]",
+            ButtonSize.Large => "px-6 py-3 text-sm",
+            _ => "px-4 py-2 text-xs"
+        };
+
+        var variantClasses = Type switch
+        {
+            ButtonType.Primary => "bg-emerald-500 hover:bg-emerald-400 text-white",
+            ButtonType.Danger => "bg-red-50 border border-red-200 hover:bg-red-100 text-red-600",
+            ButtonType.DangerSolid => "bg-red-500 hover:bg-red-600 text-white",
+            ButtonType.Ghost => "hover:bg-bone2 text-inksoft hover:text-ink",
+            _ => "bg-white border border-ink/10 hover:bg-bone2 text-ink"
+        };
+
+        var widthClass = FullWidth ? "w-full" : "";
+
+        return $"inline-flex items-center justify-center {baseClasses} {variantClasses} {widthClass} uppercase tracking-wider font-bold transition-colors disabled:opacity-50 {Class}".Trim();
+    }
+
+    public enum ButtonType { Primary, Secondary, Danger, DangerSolid, Ghost }
+    public enum ButtonSize { Small, Medium, Large }
+}

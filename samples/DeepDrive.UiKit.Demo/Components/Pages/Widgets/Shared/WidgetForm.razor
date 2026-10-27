@@ -1,0 +1,19 @@
+@* Shared form fields for create + edit, built from the kit's DeepDrive* form components. *@
+
+<FormCard Title="Widget details">
+    <FormRow>
+        <DeepDriveInputText Label="Name" @bind-Value="Model.Name" Placeholder="e.g. Titanium Driver" />
+    </FormRow>
+    <FormRow Columns="2">
+        <DeepDriveInputText Label="Category" @bind-Value="Model.Category" Placeholder="e.g. Clubs" />
+        <DeepDriveInputNumber T="decimal" Label="Price (USD)" @bind-Value="Model.PriceUsd" Placeholder="0" />
+    </FormRow>
+    <FormRow>
+        <DeepDriveInputTextarea Label="Description" @bind-Value="Model.Description" Rows="3" Placeholder="Short description (optional)" />
+    </FormRow>
+</FormCard>
+
+@code {
+    [Parameter, EditorRequired] public WidgetFormModel Model { get; set; } = null!;
+    [Parameter] public bool IsEditMode { get; set; }
+}

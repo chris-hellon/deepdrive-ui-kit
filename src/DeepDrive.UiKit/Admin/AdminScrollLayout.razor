@@ -1,0 +1,70 @@
+@inject IJSRuntime Js
+
+@*
+    Shared admin shell with the standard collapse-on-scroll header.
+    Use for custom (non GenericAdminListPage) admin pages so every header
+    has identical title typography + behaviour. Actions render in both the
+    full and compact header bars; HeaderBelow renders under the title row
+    in the full header only (e.g. filters/totals).
+*@
+<div class="flex flex-col h-full bg-bone">
+    @* Compact header (visible when scrolled) *@
+    <div class="@(_isScrolled ? "translate-y-0 opacity-100" : "-translate-y-full opacity-0 pointer-events-none") transition-all duration-300 absolute top-0 left-0 right-0 z-30 bg-white border-b border-ink/10 px-4 py-2.5">
+        <div class="flex items-center justify-between gap-2">
+            <h1 class="ed-display text-base text-ink leading-none">@Title</h1>
+            @if (Actions is not null)
+            {
+                <div class="flex items-center gap-1.5">@Actions</div>
+            }
+        </div>
+    </div>
+
+    <div class="flex-1 overflow-y-auto overflow-x-hidden" @onscroll="OnScroll" data-scroll-container>
+        @* Full header (scrolls away) *@
+        <div class="bg-white border-b border-ink/10 px-4 md:px-6 py-3 md:py-4">
+            <div class="flex items-center justify-between gap-2">
+                <h1 class="ed-display text-xl md:text-2xl text-ink leading-none">@Title</h1>
+                @if (Actions is not null)
+                {
+                    <div class="flex items-center gap-1.5">@Actions</div>
+                }
+            </div>
+            @if (HeaderBelow is not null)
+            {
+                <div class="mt-3">@HeaderBelow</div>
+            }
+        </div>
+
+        <div class="@(NoPadding ? "" : "px-4 md:px-6 py-4 md:py-6")">
+            @ChildContent
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public string Title { get; set; } = string.Empty;
+    [Parameter] public RenderFragment? Actions { get; set; }
+    [Parameter] public RenderFragment? HeaderBelow { get; set; }
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+    [Parameter] public bool NoPadding { get; set; }
+
+    private bool _isScrolled;
+
+    private async Task OnScroll()
+    {
+        try
+        {
+            var scrollTop = await Js.InvokeAsync<double>("eval", "document.querySelector('[data-scroll-container]')?.scrollTop ?? 0");
+            var shouldBeScrolled = scrollTop > 60;
+            if (shouldBeScrolled != _isScrolled)
+            {
+                _isScrolled = shouldBeScrolled;
+                StateHasChanged();
+            }
+        }
+        catch
+        {
+            // Ignore scroll errors
+        }
+    }
+}

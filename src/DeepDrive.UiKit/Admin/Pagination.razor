@@ -1,0 +1,43 @@
+@if (TotalPages > 1)
+{
+    <div class="flex items-center justify-between mt-4 pt-4 border-t border-ink/10">
+        <div class="ed-micro text-taupe">
+            Showing @((CurrentPage - 1) * PageSize + 1) - @Math.Min(CurrentPage * PageSize, TotalCount) of @TotalCount
+        </div>
+        <div class="flex items-center gap-2">
+            <button @onclick="GoToPrevious" disabled="@(CurrentPage <= 1)"
+                    class="px-4 py-2 text-xs font-bold uppercase tracking-wider transition-colors @(CurrentPage <= 1 ? "bg-bone2 text-taupe/40 cursor-not-allowed" : "bg-white border border-ink/10 hover:bg-bone2 text-ink")">
+                Previous
+            </button>
+            <span class="px-3 py-2 ed-micro text-taupe">Page @CurrentPage of @TotalPages</span>
+            <button @onclick="GoToNext" disabled="@(CurrentPage >= TotalPages)"
+                    class="px-4 py-2 text-xs font-bold uppercase tracking-wider transition-colors @(CurrentPage >= TotalPages ? "bg-bone2 text-taupe/40 cursor-not-allowed" : "bg-white border border-ink/10 hover:bg-bone2 text-ink")">
+                Next
+            </button>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter, EditorRequired] public int CurrentPage { get; set; }
+    [Parameter, EditorRequired] public int TotalPages { get; set; }
+    [Parameter, EditorRequired] public int TotalCount { get; set; }
+    [Parameter] public int PageSize { get; set; } = 20;
+    [Parameter] public EventCallback<int> OnPageChanged { get; set; }
+
+    private async Task GoToPrevious()
+    {
+        if (CurrentPage > 1)
+        {
+            await OnPageChanged.InvokeAsync(CurrentPage - 1);
+        }
+    }
+
+    private async Task GoToNext()
+    {
+        if (CurrentPage < TotalPages)
+        {
+            await OnPageChanged.InvokeAsync(CurrentPage + 1);
+        }
+    }
+}
